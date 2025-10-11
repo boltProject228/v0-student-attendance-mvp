@@ -11,10 +11,16 @@
   "dependencies": {
     "@aws-sdk/credential-providers": "latest",
     "@mongodb-js/zstd": "latest",
+    "@radix-ui/react-label": "latest",
+    "@radix-ui/react-select": "latest",
+    "@radix-ui/react-slot": "latest",
+    "@radix-ui/react-tabs": "latest",
+    "@vercel/analytics": "latest",
     "bcryptjs": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "gcp-metadata": "latest",
+    "geist": "latest",
     "jsonwebtoken": "latest",
     "kerberos": "latest",
     "lucide-react": "^0.454.0",
@@ -22,12 +28,14 @@
     "mongodb-client-encryption": "latest",
     "mongoose": "latest",
     "next": "15.2.4",
+    "next-themes": "latest",
     "react": "^19",
     "react-dom": "^19",
     "snappy": "latest",
     "socks": "latest",
     "tailwind-merge": "^2.5.5",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "tw-animate-css": "latest"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
