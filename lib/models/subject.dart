@@ -1,7 +1,16 @@
+import 'package:hive/hive.dart'; // NEW
+
+part 'subject.g.dart'; // NEW
+
+@HiveType(typeId: 3) // NEW
 class Subject {
+  @HiveField(0) // NEW
   final String id;
+  @HiveField(1) // NEW
   final String name;
+  @HiveField(2) // NEW
   final String teacherId;
+  @HiveField(3) // NEW
   final DateTime createdAt;
 
   Subject({

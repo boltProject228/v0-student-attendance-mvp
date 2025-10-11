@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'storage_service.dart';
+import 'hive_service.dart'; // NEW: Replaced storage_service.dart with hive_service.dart
 
 class ApiService {
   static const String baseUrl = 'http://localhost:3000/api';
 
   static Future<Map<String, String>> _getHeaders() async {
-    final token = await StorageService.getToken();
+    final token = HiveService.getToken(); // NEW: Use HiveService instead of StorageService
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',

@@ -1,8 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
-import '../services/storage_service.dart';
+import '../services/hive_service.dart'; // NEW: Замена storage
 
 class AuthProvider with ChangeNotifier {
   User? _user;
@@ -24,10 +23,11 @@ class AuthProvider with ChangeNotifier {
       final token = response['token'];
       final userData = response['user'];
 
-      await StorageService.saveToken(token);
-      await StorageService.saveUserData(jsonEncode(userData));
+      await HiveService.saveToken(token);
+      final user = User.fromJson(userData);
+      await HiveService.saveUser(user);
 
-      _user = User.fromJson(userData);
+      _user = user;
       _isLoading = false;
       notifyListeners();
       return true;
@@ -46,22 +46,33 @@ class AuthProvider with ChangeNotifier {
       print('Logout API error: $e');
     }
 
-    await StorageService.clearAll();
+    await HiveService.clearAll();
     _user = null;
     notifyListeners();
   }
 
   Future<bool> checkAuth() async {
-    final token = await StorageService.getToken();
+    final token = HiveService.getToken();
     if (token == null) return false;
 
+    // NEW: Сначала пробуем из Hive
+    final cachedUser = HiveService.getUser();
+    if (cachedUser != null) {
+      _user = cachedUser;
+      notifyListeners();
+      return true;
+    }
+
+    // Если нет в кэше — с сервера
     try {
       final userData = await ApiService.getCurrentUser();
-      _user = User.fromJson(userData);
+      final user = User.fromJson(userData);
+      await HiveService.saveUser(user);
+      _user = user;
       notifyListeners();
       return true;
     } catch (e) {
-      await StorageService.clearAll();
+      await HiveService.clearAll();
       return false;
     }
   }

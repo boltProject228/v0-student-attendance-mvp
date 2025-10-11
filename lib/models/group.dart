@@ -1,8 +1,18 @@
+import 'package:hive/hive.dart'; // NEW
+
+part 'group.g.dart'; // NEW
+
+@HiveType(typeId: 1) // NEW
 class Group {
+  @HiveField(0) // NEW
   final String id;
+  @HiveField(1) // NEW
   final String name;
+  @HiveField(2) // NEW
   final String specialty;
+  @HiveField(3) // NEW
   final int course;
+  @HiveField(4) // NEW
   final DateTime createdAt;
 
   Group({

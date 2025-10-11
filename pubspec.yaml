@@ -22,8 +22,9 @@ dependencies:
   http: ^1.2.0
   dio: ^5.4.0
 
-  # Storage
-  shared_preferences: ^2.2.2
+  # Storage (NEW: Hive instead of SharedPreferences)
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
   equatable: ^2.0.5
 
   # Utils
@@ -36,9 +37,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  # NEW: For Hive adapters
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.6
 
 flutter:
   uses-material-design: true
-
-  assets:
-    - assets/images/

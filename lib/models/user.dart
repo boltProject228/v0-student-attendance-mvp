@@ -1,7 +1,16 @@
+import 'package:hive/hive.dart'; // NEW
+
+part 'user.g.dart'; // NEW: Generated file
+
+@HiveType(typeId: 0) // NEW
 class User {
+  @HiveField(0) // NEW
   final String id;
+  @HiveField(1) // NEW
   final String login;
+  @HiveField(2) // NEW
   final String role;
+  @HiveField(3) // NEW
   final DateTime createdAt;
 
   User({

@@ -1,12 +1,26 @@
+import 'package:hive/hive.dart'; // NEW
+
+part 'attendance.g.dart'; // NEW
+
+@HiveType(typeId: 4) // NEW
 class Attendance {
+  @HiveField(0) // NEW
   final String id;
+  @HiveField(1) // NEW
   final String studentId;
+  @HiveField(2) // NEW
   final String groupId;
+  @HiveField(3) // NEW
   final String subjectId;
+  @HiveField(4) // NEW
   final DateTime date;
+  @HiveField(5) // NEW
   final String status;
+  @HiveField(6) // NEW
   final String updatedBy;
+  @HiveField(7) // NEW
   final DateTime createdAt;
+  @HiveField(8) // NEW
   final DateTime updatedAt;
 
   Attendance({
