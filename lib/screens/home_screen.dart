@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/app_drawer.dart';
+import '../providers/groups_provider.dart';
+import '../providers/attendance_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,128 +15,57 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _checkAuth();
-  }
-
-  Future<void> _checkAuth() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final isAuthenticated = await authProvider.checkAuth();
-    if (!isAuthenticated && mounted) {
-      Navigator.pushReplacementNamed(context, '/login');
-    }
+    authProvider.checkAuth().then((isAuth) {
+      if (!isAuth) {
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        // Load data
+        Provider.of<GroupsProvider>(context, listen: false).fetchGroups();
+        Provider.of<GroupsProvider>(context, listen: false).fetchSubjects();
+        Provider.of<AttendanceProvider>(context, listen: false).fetchStudents();
+        Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    final user = authProvider.user;
+    final groupsProvider = Provider.of<GroupsProvider>(context);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+
+    if (authProvider.user == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Главная'),
-        elevation: 2,
+        title: Text('Добро пожаловать, ${authProvider.user!.login}'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await authProvider.logout();
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          ),
+        ],
       ),
-      drawer: const AppDrawer(),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Добро пожаловать!',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Пользователь: ${user?.login ?? ""}',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    Text(
-                      'Роль: ${user?.role == "head" ? "Завкафедры" : "Преподаватель"}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                children: [
-                  _buildMenuCard(
-                    context,
-                    title: 'Посещаемость',
-                    icon: Icons.check_circle,
-                    color: Colors.blue,
-                    route: '/attendance',
-                  ),
-                  _buildMenuCard(
-                    context,
-                    title: 'Группы',
-                    icon: Icons.groups,
-                    color: Colors.green,
-                    route: '/groups',
-                  ),
-                  if (user?.isHead == true)
-                    _buildMenuCard(
-                      context,
-                      title: 'Администрирование',
-                      icon: Icons.admin_panel_settings,
-                      color: Colors.orange,
-                      route: '/admin',
-                    ),
-                  _buildMenuCard(
-                    context,
-                    title: 'Аналитика',
-                    icon: Icons.analytics,
-                    color: Colors.purple,
-                    route: '/analytics',
-                  ),
-                ],
-              ),
-            ),
+            Text('Роль: ${authProvider.user!.role}'),
+            Text('Настройки: ${authProvider.user!.settings.toString()}'),
+            const SizedBox(height: 20),
+            const Text('Группы:'),
+            ...groupsProvider.groups.map((g) => Text('- ${g.name} (${g.specialty})')),
+            const SizedBox(height: 20),
+            const Text('Студенты:'),
+            ...attendanceProvider.students.map((s) => Text('- ${s.fullName} (Group: ${s.groupId})')),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMenuCard(
-    BuildContext context, {
-    required String title,
-    required IconData icon,
-    required Color color,
-    required String route,
-  }) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          Navigator.pushNamed(context, route);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 48, color: color),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
-          ),
         ),
       ),
     );

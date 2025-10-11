@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import '../data/mock_data.dart'; // NEW: For mocks
 import '../models/user.dart';
 import '../services/api_service.dart';
-import '../services/hive_service.dart'; // NEW: Замена storage
+import '../services/hive_service.dart';
 
 class AuthProvider with ChangeNotifier {
   User? _user;
@@ -13,13 +14,21 @@ class AuthProvider with ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _user != null;
 
+  static const bool useMock = true; // NEW: Switch to false for real API
+
   Future<bool> login(String login, String password) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      final response = await ApiService.login(login, password);
+      Map<String, dynamic> response;
+      if (useMock) {
+        response = MockData.mockLogin(login, password);
+      } else {
+        response = await ApiService.login(login, password);
+      }
+
       final token = response['token'];
       final userData = response['user'];
 
@@ -30,6 +39,12 @@ class AuthProvider with ChangeNotifier {
       _user = user;
       _isLoading = false;
       notifyListeners();
+
+      // NEW: After login, load all mock data and save to Hive
+      if (useMock) {
+        await _loadMockData();
+      }
+
       return true;
     } catch (e) {
       _error = e.toString();
@@ -39,11 +54,31 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  Future<void> _loadMockData() async {
+    // Load and save groups
+    final groups = MockData.mockGetGroups();
+    await HiveService.saveGroups(groups);
+
+    // Load and save students
+    final students = MockData.mockGetStudents();
+    await HiveService.saveStudents(students);
+
+    // Load and save subjects
+    final subjects = MockData.mockGetSubjects();
+    await HiveService.saveSubjects(subjects);
+
+    // Load and save attendance
+    final attendance = MockData.mockGetAttendance();
+    await HiveService.saveAttendance(attendance);
+  }
+
   Future<void> logout() async {
     try {
-      await ApiService.logout();
+      if (!useMock) {
+        await ApiService.logout();
+      }
     } catch (e) {
-      print('Logout API error: $e');
+      print('Logout error: $e');
     }
 
     await HiveService.clearAll();
@@ -55,7 +90,6 @@ class AuthProvider with ChangeNotifier {
     final token = HiveService.getToken();
     if (token == null) return false;
 
-    // NEW: Сначала пробуем из Hive
     final cachedUser = HiveService.getUser();
     if (cachedUser != null) {
       _user = cachedUser;
@@ -63,9 +97,14 @@ class AuthProvider with ChangeNotifier {
       return true;
     }
 
-    // Если нет в кэше — с сервера
     try {
-      final userData = await ApiService.getCurrentUser();
+      Map<String, dynamic> userData;
+      if (useMock) {
+        // For mock, assume token valid, load mock user
+        userData = {'id': 'mock', 'login': 'mock', 'role': 'teacher', 'createdAt': DateTime.now().toIso8601String()};
+      } else {
+        userData = await ApiService.getCurrentUser();
+      }
       final user = User.fromJson(userData);
       await HiveService.saveUser(user);
       _user = user;

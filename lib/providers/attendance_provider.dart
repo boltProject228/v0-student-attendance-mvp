@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../data/mock_data.dart'; // NEW
 import '../models/attendance.dart';
 import '../models/student.dart';
 import '../services/api_service.dart';
-import '../services/hive_service.dart'; // NEW
+import '../services/hive_service.dart';
 
 class AttendanceProvider with ChangeNotifier {
   List<Attendance> _attendanceList = [];
@@ -15,12 +16,13 @@ class AttendanceProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  static const bool useMock = true; // NEW
+
   Future<void> fetchAttendance({String? groupId, String? date}) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    // NEW: Проверяем кэш
     final cachedAttendance = HiveService.getAttendance();
     if (cachedAttendance != null) {
       _attendanceList = cachedAttendance;
@@ -30,12 +32,14 @@ class AttendanceProvider with ChangeNotifier {
     }
 
     try {
-      final data = await ApiService.getAttendance(
-        groupId: groupId,
-        date: date,
-      );
+      List<dynamic> data;
+      if (useMock) {
+        data = MockData.mockGetAttendance().map((a) => a.toJson()).toList();
+      } else {
+        data = await ApiService.getAttendance(groupId: groupId, date: date);
+      }
       _attendanceList = data.map((json) => Attendance.fromJson(json)).toList();
-      await HiveService.saveAttendance(_attendanceList); // Сохраняем
+      await HiveService.saveAttendance(_attendanceList);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -46,7 +50,6 @@ class AttendanceProvider with ChangeNotifier {
   }
 
   Future<void> fetchStudents() async {
-    // NEW: Проверяем кэш
     final cachedStudents = HiveService.getStudents();
     if (cachedStudents != null) {
       _students = cachedStudents;
@@ -55,9 +58,14 @@ class AttendanceProvider with ChangeNotifier {
     }
 
     try {
-      final data = await ApiService.getStudents();
+      List<dynamic> data;
+      if (useMock) {
+        data = MockData.mockGetStudents().map((s) => s.toJson()).toList();
+      } else {
+        data = await ApiService.getStudents();
+      }
       _students = data.map((json) => Student.fromJson(json)).toList();
-      await HiveService.saveStudents(_students); // Сохраняем
+      await HiveService.saveStudents(_students);
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -67,8 +75,9 @@ class AttendanceProvider with ChangeNotifier {
 
   Future<bool> createAttendance(Map<String, dynamic> data) async {
     try {
-      await ApiService.createAttendance(data);
-      // NEW: После создания — перезагружаем и сохраняем кэш
+      if (!useMock) {
+        await ApiService.createAttendance(data);
+      } // For mock, simulate
       await fetchAttendance();
       return true;
     } catch (e) {
@@ -80,8 +89,9 @@ class AttendanceProvider with ChangeNotifier {
 
   Future<bool> updateAttendance(String id, Map<String, dynamic> data) async {
     try {
-      await ApiService.updateAttendance(id, data);
-      // NEW: Перезагружаем кэш
+      if (!useMock) {
+        await ApiService.updateAttendance(id, data);
+      } // Simulate
       await fetchAttendance();
       return true;
     } catch (e) {
