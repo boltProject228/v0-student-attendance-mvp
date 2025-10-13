@@ -260,7 +260,7 @@ class _StudentAnalyticsListState extends State<StudentAnalyticsList> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedStudentId,
+              initialValue: _selectedStudentId,
               decoration: const InputDecoration(
                 labelText: 'Выберите студента',
                 border: OutlineInputBorder(),

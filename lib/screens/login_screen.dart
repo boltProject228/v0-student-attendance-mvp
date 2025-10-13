@@ -28,14 +28,16 @@ class _LoginScreenState extends State<LoginScreen> {
       final success = await authProvider.login(
         _loginController.text,
         _passwordController.text,
+        context, // Добавляем context как третий аргумент
       );
 
       if (success && mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
+        // Перенаправление уже обрабатывается в AuthProvider, но можно оставить как fallback
+        // Navigator.pushReplacementNamed(context, '/home');
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ошибка входа. Проверьте логин и пароль.'),
+          SnackBar(
+            content: Text(authProvider.error ?? 'Ошибка входа. Проверьте логин и пароль.'),
             backgroundColor: Colors.red,
           ),
         );

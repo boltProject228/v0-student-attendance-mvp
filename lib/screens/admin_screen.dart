@@ -163,7 +163,7 @@ class UsersTab extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: role,
+                initialValue: role,
                 decoration: const InputDecoration(labelText: 'Роль'),
                 items: const [
                   DropdownMenuItem(value: 'teacher', child: Text('Преподаватель')),
@@ -297,7 +297,7 @@ class GroupsTab extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<int>(
-                value: course,
+                initialValue: course,
                 decoration: const InputDecoration(labelText: 'Курс'),
                 items: [1, 2, 3, 4]
                     .map((c) => DropdownMenuItem(value: c, child: Text('$c')))
@@ -429,7 +429,7 @@ class StudentsTab extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: groupId,
+                initialValue: groupId,
                 decoration: const InputDecoration(labelText: 'Группа'),
                 items: adminProvider.groups
                     .map((g) => DropdownMenuItem(value: g.id, child: Text(g.name)))
@@ -559,7 +559,7 @@ class SubjectsTab extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: teacherId,
+                initialValue: teacherId,
                 decoration: const InputDecoration(labelText: 'Преподаватель'),
                 items: adminProvider.users
                     .map((u) => DropdownMenuItem(value: u.id, child: Text(u.login)))

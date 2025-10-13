@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart'; // NEW: For mocks
+import '../data/mock_data.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/hive_service.dart';
@@ -14,9 +14,9 @@ class AuthProvider with ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _user != null;
 
-  static const bool useMock = true; // NEW: Switch to false for real API
+  static const bool useMock = true;
 
-  Future<bool> login(String login, String password) async {
+  Future<bool> login(String login, String password, BuildContext context) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -40,9 +40,16 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
-      // NEW: After login, load all mock data and save to Hive
+      // Загрузка мок-данных
       if (useMock) {
         await _loadMockData();
+      }
+
+      // Перенаправление в зависимости от роли
+      if (user.isTeacher) {
+        Navigator.pushReplacementNamed(context, '/teacher_home');
+      } else if (user.isHead) {
+        Navigator.pushReplacementNamed(context, '/head_home');
       }
 
       return true;
@@ -55,19 +62,21 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _loadMockData() async {
-    // Load and save groups
-    final groups = MockData.mockGetGroups();
-    await HiveService.saveGroups(groups);
+    try {
+      // Load and save groups
+      final groups = MockData.mockGetGroups();
+      await HiveService.saveGroups(groups);
 
-    // Load and save students
-    final students = MockData.mockGetStudents();
-    await HiveService.saveStudents(students);
+      // Load and save students
+      final students = MockData.mockGetStudents();
+      await HiveService.saveStudents(students);
 
-
-
-    // Load and save attendance
-    final attendance = MockData.mockGetAttendance();
-    await HiveService.saveAttendance(attendance);
+      // Load and save attendance
+      final attendance = MockData.mockGetAttendance();
+      await HiveService.saveAttendance(attendance);
+    } catch (e) {
+      print('Error loading mock data: $e');
+    }
   }
 
   Future<void> logout() async {
@@ -98,8 +107,12 @@ class AuthProvider with ChangeNotifier {
     try {
       Map<String, dynamic> userData;
       if (useMock) {
-        // For mock, assume token valid, load mock user
-        userData = {'id': 'mock', 'login': 'mock', 'role': 'teacher', 'createdAt': DateTime.now().toIso8601String()};
+        userData = {
+          'id': 'mock',
+          'login': 'mock',
+          'role': 'teacher',
+          'createdAt': DateTime.now().toIso8601String()
+        };
       } else {
         userData = await ApiService.getCurrentUser();
       }

@@ -16,7 +16,6 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/attendance_screen.dart';
 
-import 'services/api_service.dart';
 import 'services/hive_service.dart';
 
 Future<void> main() async {

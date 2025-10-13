@@ -1,6 +1,5 @@
 import '../models/group.dart';
 import '../models/student.dart';
-import '../models/subject.dart';
 import '../models/attendance.dart';
 import '../models/user.dart';
 
