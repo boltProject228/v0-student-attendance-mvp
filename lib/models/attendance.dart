@@ -1,33 +1,30 @@
-import 'package:hive/hive.dart'; // NEW
+import 'package:hive/hive.dart';
 
-part 'attendance.g.dart'; // NEW
+part 'attendance.g.dart';
 
-@HiveType(typeId: 4) // NEW
+@HiveType(typeId: 4)
 class Attendance {
-  @HiveField(0) // NEW
+  @HiveField(0)
   final String id;
-  @HiveField(1) // NEW
+  @HiveField(1)
   final String studentId;
-  @HiveField(2) // NEW
+  @HiveField(2)
   final String groupId;
-  @HiveField(3) // NEW
-  final String subjectId;
-  @HiveField(4) // NEW
+  @HiveField(3)
   final DateTime date;
-  @HiveField(5) // NEW
+  @HiveField(4)
   final String status;
-  @HiveField(6) // NEW
+  @HiveField(5)
   final String updatedBy;
-  @HiveField(7) // NEW
+  @HiveField(6)
   final DateTime createdAt;
-  @HiveField(8) // NEW
+  @HiveField(7)
   final DateTime updatedAt;
 
   Attendance({
     required this.id,
     required this.studentId,
     required this.groupId,
-    required this.subjectId,
     required this.date,
     required this.status,
     required this.updatedBy,
@@ -40,7 +37,6 @@ class Attendance {
       id: json['_id'] ?? json['id'] ?? '',
       studentId: json['studentId'] ?? '',
       groupId: json['groupId'] ?? '',
-      subjectId: json['subjectId'] ?? '',
       date: json['date'] != null
           ? DateTime.parse(json['date'])
           : DateTime.now(),
@@ -60,7 +56,6 @@ class Attendance {
       '_id': id,
       'studentId': studentId,
       'groupId': groupId,
-      'subjectId': subjectId,
       'date': date.toIso8601String(),
       'status': status,
       'updatedBy': updatedBy,

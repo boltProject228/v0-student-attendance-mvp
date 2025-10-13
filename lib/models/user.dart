@@ -14,6 +14,10 @@ class User {
   final DateTime createdAt;
   @HiveField(4) // NEW: Settings
   final Map<String, dynamic>? settings;
+  @HiveField(5)
+  final String? firstName;
+  @HiveField(6)
+  final String? lastName;
 
   User({
     required this.id,
@@ -21,6 +25,8 @@ class User {
     required this.role,
     required this.createdAt,
     this.settings,
+    this.firstName,
+    this.lastName,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -32,6 +38,8 @@ class User {
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
       settings: json['settings'],
+      firstName: json['firstName'],
+      lastName: json['lastName'],
     );
   }
 
@@ -42,9 +50,13 @@ class User {
       'role': role,
       'createdAt': createdAt.toIso8601String(),
       'settings': settings,
+      'firstName': firstName,
+      'lastName': lastName,
     };
   }
 
   bool get isHead => role == 'head';
   bool get isTeacher => role == 'teacher';
+
+  String get fullName => '${lastName ?? ''} ${firstName ?? ''}'.trim();
 }

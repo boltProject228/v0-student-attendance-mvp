@@ -49,27 +49,5 @@ class GroupsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchSubjects() async {
-    final cachedSubjects = HiveService.getSubjects();
-    if (cachedSubjects != null) {
-      _subjects = cachedSubjects;
-      notifyListeners();
-      return;
-    }
-
-    try {
-      List<dynamic> data;
-      if (useMock) {
-        data = MockData.mockGetSubjects().map((s) => s.toJson()).toList();
-      } else {
-        data = await ApiService.getSubjects();
-      }
-      _subjects = data.map((json) => Subject.fromJson(json)).toList();
-      await HiveService.saveSubjects(_subjects);
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
+ 
 }

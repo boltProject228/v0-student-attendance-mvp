@@ -16,7 +16,7 @@ class AttendanceProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  static const bool useMock = true; // NEW
+  static const bool useMock = true; // Установите на false, когда API будет готово
 
   Future<void> fetchAttendance({String? groupId, String? date}) async {
     _isLoading = true;
@@ -99,5 +99,55 @@ class AttendanceProvider with ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  Future<Map<String, String>> getAttendances(String groupId, String date) async {
+    await fetchAttendance(groupId: groupId, date: date);
+    Map<String, String> attendances = {};
+    for (var att in _attendanceList) {
+      // Предполагаем, что date в формате YYYY-MM-DD, и att.date в ISO
+      String attDate = att.date.toIso8601String().split('T')[0];
+      if (attDate == date && att.groupId == groupId) {  // Если модель Attendance имеет groupId
+        attendances[att.studentId] = att.status?.isEmpty ?? true ? 'unmarked' : att.status!;
+      }
+    }
+    // Если для некоторых студентов нет записи, они останутся unmarked в _summary
+    return attendances;
+  }
+}
+
+extension AttendanceSummary on AttendanceProvider {
+  /// Возвращает количество студентов по группе
+  int getGroupStudentCount(String groupId) {
+    return students.where((s) => s.groupId == groupId).length;
+  }
+
+  /// Возвращает статистику по посещаемости для группы
+  Map<String, int> getGroupAttendanceStats(String groupId) {
+    final stats = {
+      'present': 0,
+      'absent': 0,
+      'sick': 0,
+      'wsk': 0,
+      'marked': 0,
+    };
+
+    final groupStudents = students.where((s) => s.groupId == groupId).toList();
+    for (final student in groupStudents) {
+      final records = attendanceList
+          .where((a) => a.studentId == student.id)
+          .toList();
+      if (records.isNotEmpty) {
+        final last = records.last; // берем последний статус
+        final status = last.status?.isEmpty ?? true ? 'unmarked' : last.status!;
+        if (stats.containsKey(status) && status != 'unmarked') {
+          stats[status] = (stats[status]! + 1);
+        }
+        if (status != 'unmarked') {
+          stats['marked'] = stats['marked']! + 1;
+        }
+      }
+    }
+    return stats;
   }
 }

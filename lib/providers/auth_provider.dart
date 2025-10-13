@@ -63,9 +63,7 @@ class AuthProvider with ChangeNotifier {
     final students = MockData.mockGetStudents();
     await HiveService.saveStudents(students);
 
-    // Load and save subjects
-    final subjects = MockData.mockGetSubjects();
-    await HiveService.saveSubjects(subjects);
+
 
     // Load and save attendance
     final attendance = MockData.mockGetAttendance();
