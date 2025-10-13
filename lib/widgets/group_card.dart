@@ -36,7 +36,7 @@ class GroupCard extends StatelessWidget {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(
-          minWidth: 280,
+          minWidth: 300,
           maxWidth: 500,
         ),
         child: Padding(
@@ -74,9 +74,8 @@ class GroupCard extends StatelessWidget {
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,  // 👈 добавлено
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // 🏷️ Название группы — слева
                         Flexible(
                           child: Text(
                             'Группа ${group.name}',
@@ -88,8 +87,6 @@ class GroupCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-
-                        // 👥 Количество студентов — справа
                         Row(
                           children: [
                             const Icon(
@@ -166,7 +163,34 @@ class GroupCard extends StatelessWidget {
                     ),
                   ),
 
+                  // 📊 Третья строка статистики
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatusText(
+                            "Отмечено",
+                            markedCount,
+                            Colors.blue,
+                            labelFontSize,
+                            countFontSize,
+                          ),
+                        ),
+                        Expanded(
+                          child: _buildStatusText(
+                            "Не отмечено",
+                            studentCount - markedCount,
+                            Colors.grey,
+                            labelFontSize,
+                            countFontSize,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
+                  const SizedBox(height: 12),
                 ],
               ),
             ),

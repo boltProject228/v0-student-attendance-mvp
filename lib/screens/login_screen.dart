@@ -46,6 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final theme = Theme.of(context);
 
     return Scaffold(
       body: Center(
@@ -54,7 +55,11 @@ class _LoginScreenState extends State<LoginScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 400),
             child: Card(
-              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              elevation: 8,
+              shadowColor: Colors.black26,
               child: Padding(
                 padding: const EdgeInsets.all(32.0),
                 child: Form(
@@ -63,39 +68,53 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Icon(
-                        Icons.school,
-                        size: 64,
-                        color: Color(0xFF2563EB),
+                      // Логотип
+                      Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.blue.shade50,
+                          child: const Icon(
+                            Icons.school,
+                            size: 40,
+                            color: Color(0xFF2563EB),
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 24),
+
+                      // Заголовок
                       Text(
                         'Система Посещаемости',
                         textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
                       ),
                       const SizedBox(height: 32),
+
+                      // Логин
                       TextFormField(
                         controller: _loginController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Логин',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.person),
+                          prefixIcon: const Icon(Icons.person),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Введите логин';
-                          }
-                          return null;
-                        },
+                        validator: (value) =>
+                            value == null || value.isEmpty ? 'Введите логин' : null,
                       ),
                       const SizedBox(height: 16),
+
+                      // Пароль
                       TextFormField(
                         controller: _passwordController,
                         obscureText: !_isPasswordVisible,
                         decoration: InputDecoration(
                           labelText: 'Пароль',
-                          border: const OutlineInputBorder(),
                           prefixIcon: const Icon(Icons.lock),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -109,28 +128,52 @@ class _LoginScreenState extends State<LoginScreen> {
                               });
                             },
                           ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Введите пароль';
-                          }
-                          return null;
-                        },
+                        validator: (value) =>
+                            value == null || value.isEmpty ? 'Введите пароль' : null,
                       ),
                       const SizedBox(height: 24),
+
+                      // Кнопка входа
                       FilledButton(
                         onPressed: authProvider.isLoading ? null : _handleLogin,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12.0),
-                          child: authProvider.isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('Войти'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: Colors.blue.shade600,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: authProvider.isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text(
+                                'Войти',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Подсказка или ссылка на восстановление пароля
+                      TextButton(
+                        onPressed: () {},
+                        child: const Text(
+                          'Забыли пароль?',
+                          style: TextStyle(color: Colors.blue),
                         ),
                       ),
                     ],
@@ -141,6 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+      backgroundColor: Colors.grey.shade100,
     );
   }
 }

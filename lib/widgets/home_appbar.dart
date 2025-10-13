@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../providers/auth_provider.dart';
-import '../screens/profile_screen.dart';
 
 AppBar buildHomeAppBar(BuildContext context, AuthProvider authProvider) {
   return AppBar(
@@ -21,16 +20,5 @@ AppBar buildHomeAppBar(BuildContext context, AuthProvider authProvider) {
         ),
       ],
     ),
-    actions: [
-      IconButton(
-        icon: Icon(Icons.person, color: Colors.grey.shade600),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ProfileScreen()),
-          );
-        },
-      ),
-    ],
   );
 }

@@ -7,6 +7,7 @@ import '../widgets/summary_bar.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final Group group;
+
   const AttendanceScreen({super.key, required this.group});
 
   @override
@@ -15,22 +16,24 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
   final Map<String, String> _statuses = {};
+  final Map<String, String> _attIds = {};
 
   @override
   void initState() {
     super.initState();
     final provider = Provider.of<AttendanceProvider>(context, listen: false);
     provider.fetchStudents();
-    _loadExistingAttendances();  // Добавлено для загрузки существующих данных из провайдера
+    _loadExistingAttendances();
   }
 
   Future<void> _loadExistingAttendances() async {
     final provider = Provider.of<AttendanceProvider>(context, listen: false);
-    final today = DateTime.now().toIso8601String().split('T')[0];  // Или используйте подходящий формат даты для вашего бэкенда
+    final today = DateTime.now().toIso8601String().split('T')[0];
     final attendances = await provider.getAttendances(widget.group.id, today);
     setState(() {
       for (var entry in attendances.entries) {
-        _statuses[entry.key] = entry.value.isEmpty ? 'unmarked' : entry.value;
+        _statuses[entry.key] = entry.value['status']!;
+        _attIds[entry.key] = entry.value['id']!;
       }
     });
   }
@@ -41,7 +44,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       'absent': 0,
       'sick': 0,
       'wsk': 0,
-      'unmarked': 0
+      'unmarked': 0,
     };
 
     final provider = Provider.of<AttendanceProvider>(context, listen: false);
@@ -64,20 +67,53 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AttendanceProvider>(context);
+
+    // Получаем список студентов этой группы
     final students = provider.students
         .where((s) => s.groupId == widget.group.id)
         .toList();
 
+    // Считаем общее количество студентов
+    final studentCount = students.length;
+
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: Text(
-          'Группа ${widget.group.name}',
-          style: const TextStyle(color: Colors.black),
-        ),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         elevation: 0,
+        foregroundColor: Colors.black,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(
+              child: Text(
+                'Группа ${widget.group.name}',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Row(
+              children: [
+                const Icon(
+                  Icons.people_alt_rounded,
+                  size: 16,
+                  color: Colors.black54,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Всего в группе: $studentCount', // ✅ теперь работает
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -85,7 +121,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           itemCount: students.length,
           itemBuilder: (context, index) {
             final student = students[index];
-            final status = _statuses[student.id] ?? 'unmarked'; // 👈 если пусто — "Не отмечен"
+            final status = _statuses[student.id] ?? 'unmarked';
             return AttendanceTile(
               name: student.fullName,
               status: status,
@@ -109,13 +145,37 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Future<void> _saveAttendance() async {
     final provider = Provider.of<AttendanceProvider>(context, listen: false);
+    final nowIso = DateTime.now().toIso8601String();
+
     for (var entry in _statuses.entries) {
-      await provider.createAttendance({
-        'studentId': entry.key,
+      String studentId = entry.key;
+      String status = entry.value;
+      var data = {
+        'studentId': studentId,
         'groupId': widget.group.id,
-        'status': entry.value == 'unmarked' ? '' : entry.value,
-        'date': DateTime.now().toIso8601String(),
-      });
+        'date': nowIso,
+        'updatedBy': '1', // Mock user
+      };
+      String? attId = _attIds[studentId];
+
+      if (status == 'unmarked') {
+        if (attId != null) {
+          data['status'] = '';
+          await provider.updateAttendance(attId, data);
+        }
+      } else {
+        data['status'] = status;
+        if (attId != null) {
+          await provider.updateAttendance(attId, data);
+        } else {
+          String? newId = await provider.createAttendance(data);
+          if (newId != null) {
+            setState(() {
+              _attIds[studentId] = newId;
+            });
+          }
+        }
+      }
     }
 
     if (mounted) {

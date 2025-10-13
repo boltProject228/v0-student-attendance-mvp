@@ -9,7 +9,8 @@ import '../widgets/home_appbar.dart';
 import '../widgets/home_drawer.dart';
 import '../widgets/home_filters.dart';
 import '../widgets/group_card.dart';
-import 'attendance_screen.dart'; // 🟡 добавляем импорт
+import '../data/mock_data.dart';
+import 'attendance_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -50,19 +51,43 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  List<Group> _filteredGroups(List<Group> groups, List<Student> students) {
-    return groups.where((group) {
-      final lowerQuery = _searchQuery.toLowerCase();
-      final matchesSearch = group.name.toLowerCase().contains(lowerQuery) ||
-          students.any((s) => s.groupId == group.id && s.fullName.toLowerCase().contains(lowerQuery));
-      final matchesCourse = _selectedCourse == 'Все' || group.course.toString() == _selectedCourse;
-      final matchesSpecialty = _selectedSpecialty == 'Все' || group.specialty == _selectedSpecialty;
-      return matchesSearch && matchesCourse && matchesSpecialty;
-    }).toList();
+  /// Функция для нормализации текста: перевод в верхний регистр и замена специфических символов
+  String normalize(String input) {
+    String normalized = input.toUpperCase();
+
+    final Map<String, String> map = {
+      'Қ': 'К',
+      'Ә': 'А',
+      'Ө': 'О',
+      'Ұ': 'У',
+      'Ғ': 'Г',
+      'Ң': 'Н',
+      'І': 'И',
+    };
+
+    map.forEach((key, value) {
+      normalized = normalized.replaceAll(key, value);
+    });
+
+    return normalized.trim();
   }
 
-  int _getStudentCount(String groupId, List<Student> students) {
-    return students.where((s) => s.groupId == groupId).length;
+  /// Фильтрация групп с учетом нормализации для поиска
+  List<Group> _filteredGroups(List<Group> groups, List<Student> students) {
+    final normalizedQuery = normalize(_searchQuery);
+
+    return groups.where((group) {
+      final groupName = normalize(group.name);
+      final specialty = normalize(group.specialty);
+
+      final matchesSearch = groupName.contains(normalizedQuery) ||
+          students.any((s) => s.groupId == group.id && normalize(s.fullName).contains(normalizedQuery));
+
+      final matchesCourse = _selectedCourse == 'Все' || group.course.toString() == _selectedCourse;
+      final matchesSpecialty = _selectedSpecialty == 'Все' || specialty.contains(normalize(_selectedSpecialty));
+
+      return matchesSearch && matchesCourse && matchesSpecialty;
+    }).toList();
   }
 
   @override
@@ -78,9 +103,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final filteredGroups = _filteredGroups(groupsProvider.groups, attendanceProvider.students);
 
     List<String> availableCourses = ['Все', '1', '2', '3', '4'];
-    if (_selectedSpecialty == 'ТЭ(Ру)' || _selectedSpecialty == 'ТЭ(Қаз)') {
-      availableCourses = ['Все', '1', '2', '3', '4'];
-    }
+
+    // Верхние чипы из mockGroups
+    final mockGroups = MockData.mockGetGroups();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -104,6 +129,49 @@ class _HomeScreenState extends State<HomeScreen> {
               onCourseChanged: (value) => setState(() => _selectedCourse = value),
             ),
             const SizedBox(height: 16),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Все группы',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 50, // достаточно для ActionChip
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: mockGroups.map((group) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: ActionChip(
+                        label: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            group.name,
+                            style: const TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        backgroundColor: Colors.blue.shade100,
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AttendanceScreen(group: group),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             Expanded(
               child: filteredGroups.isEmpty
                   ? const Center(child: Text('Группы не найдены'))
@@ -116,8 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisCount = 3;
                         } else if (maxWidth > 800) {
                           crossAxisCount = 2;
-                        } else {
-                          crossAxisCount = 1;
                         }
 
                         return GridView.builder(
@@ -131,17 +197,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           itemBuilder: (context, index) {
                             final group = filteredGroups[index];
                             final studentCount = attendanceProvider.getGroupStudentCount(group.id);
-final stats = attendanceProvider.getGroupAttendanceStats(group.id);
-
+                            final today = DateTime.now().toIso8601String().split('T')[0];
+                            final stats = attendanceProvider.getGroupAttendanceStats(group.id, today);
 
                             return GroupCard(
                               group: group,
                               studentCount: studentCount,
-                              markedCount: 0,
-                              presentCount: 0,
-                              absentCount: 0,
-                              sickCount: 0,
-                              wskCount: 0,
+                              markedCount: stats['marked'] ?? 0,
+                              presentCount: stats['present'] ?? 0,
+                              absentCount: stats['absent'] ?? 0,
+                              sickCount: stats['sick'] ?? 0,
+                              wskCount: stats['wsk'] ?? 0,
                               onTap: () {
                                 Navigator.push(
                                   context,

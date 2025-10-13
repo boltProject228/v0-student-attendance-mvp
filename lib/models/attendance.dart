@@ -64,6 +64,23 @@ class Attendance {
     };
   }
 
+  Attendance copyWith({
+    String? status,
+    String? updatedBy,
+    DateTime? updatedAt,
+  }) {
+    return Attendance(
+      id: id,
+      studentId: studentId,
+      groupId: groupId,
+      date: date,
+      status: status ?? this.status,
+      updatedBy: updatedBy ?? this.updatedBy,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   bool get isPresent => status == 'present';
   bool get isAbsent => status == 'absent';
   bool get isSick => status == 'sick';

@@ -42,6 +42,7 @@ class SummaryBar extends StatelessWidget {
               _chip(Colors.red, 'Отсутствует $absent'),
               _chip(Colors.orange, 'Больничный $sick'),
               _chip(Colors.purple, 'WSK $wsk'),
+              _chip(Colors.grey, 'Не отмечено $unmarked'),
             ],
           ),
           ElevatedButton(
