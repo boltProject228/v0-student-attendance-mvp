@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../providers/groups_provider.dart';
-import '../providers/attendance_provider.dart';
-import '../models/group.dart';
-import '../models/student.dart';
-import '../widgets/home_appbar.dart';
-import '../widgets/home_drawer.dart';
-import '../widgets/home_filters.dart';
-import '../widgets/group_card.dart';
-import '../data/mock_data.dart';
-import 'attendance_screen.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/groups_provider.dart';
+import '../../providers/attendance_provider.dart';
+import '../../models/group.dart';
+import '../../models/student.dart';
+import '../../widgets/home_appbar.dart';
+import '../../widgets/home_drawer.dart';
+import '../../widgets/home_filters.dart';
+import '../../widgets/group_card.dart';
+import '../../data/mock_data.dart';
+import '../attendance_screen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class TeacherHomeScreen extends StatefulWidget {
+  const TeacherHomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<TeacherHomeScreen> createState() => _TeacherHomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   String _searchQuery = '';
   String _selectedSpecialty = 'Все';
   String _selectedCourse = 'Все';

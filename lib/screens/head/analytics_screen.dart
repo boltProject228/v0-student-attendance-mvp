@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/admin_provider.dart';
-import '../services/api_service.dart';
-import '../widgets/app_drawer.dart';
+import '../../providers/admin_provider.dart';
+import '../../services/api_service.dart';
+import '../../widgets/app_drawer.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});

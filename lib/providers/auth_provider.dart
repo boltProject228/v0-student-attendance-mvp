@@ -1,6 +1,7 @@
+import 'package:attendance_system/models/user.dart';
 import 'package:flutter/material.dart';
 import '../data/mock_data.dart';
-import '../models/user.dart';
+
 import '../services/api_service.dart';
 import '../services/hive_service.dart';
 
@@ -42,14 +43,28 @@ class AuthProvider with ChangeNotifier {
 
       // Загрузка мок-данных
       if (useMock) {
-        await _loadMockData();
+        try {
+          await _loadMockData();
+        } catch (e) {
+          print('Failed to load mock data: $e');
+          _error = 'Ошибка загрузки данных: $e';
+          notifyListeners();
+          // Продолжаем авторизацию, даже если мок-данные не загрузились
+        }
       }
 
       // Перенаправление в зависимости от роли
+      print('User role: ${user.role}');
       if (user.isTeacher) {
+        print('Navigating to teacher_home');
         Navigator.pushReplacementNamed(context, '/teacher_home');
       } else if (user.isHead) {
+        print('Navigating to head_home');
         Navigator.pushReplacementNamed(context, '/head_home');
+      } else {
+        _error = 'Неизвестная роль пользователя';
+        notifyListeners();
+        return false;
       }
 
       return true;
@@ -57,26 +72,28 @@ class AuthProvider with ChangeNotifier {
       _error = e.toString();
       _isLoading = false;
       notifyListeners();
+      print('Login error: $e');
       return false;
     }
   }
 
   Future<void> _loadMockData() async {
-    try {
-      // Load and save groups
-      final groups = MockData.mockGetGroups();
-      await HiveService.saveGroups(groups);
+    print('Starting mock data load');
+    // Load and save groups
+    final groups = MockData.mockGetGroups();
+    await HiveService.saveGroups(groups);
+    print('Groups loaded: ${groups.length}');
 
-      // Load and save students
-      final students = MockData.mockGetStudents();
-      await HiveService.saveStudents(students);
+    // Load and save students
+    final students = MockData.mockGetStudents();
+    await HiveService.saveStudents(students);
+    print('Students loaded: ${students.length}');
 
-      // Load and save attendance
-      final attendance = MockData.mockGetAttendance();
-      await HiveService.saveAttendance(attendance);
-    } catch (e) {
-      print('Error loading mock data: $e');
-    }
+    // Load and save attendance
+    final attendance = MockData.mockGetAttendance();
+    await HiveService.saveAttendance(attendance);
+    print('Attendance loaded: ${attendance.length}');
+    print('Mock data loaded successfully');
   }
 
   Future<void> logout() async {
