@@ -205,7 +205,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       presentCount: stats['present'] ?? 0,
       absentCount: stats['absent'] ?? 0,
       sickCount: stats['sick'] ?? 0,
-      wskCount: stats['wsk'] ?? 0,
+      ithubCount: stats['ithub'] ?? 0,
       onTap: () {
         Navigator.push(
           context,

@@ -84,5 +84,5 @@ class Attendance {
   bool get isPresent => status == 'present';
   bool get isAbsent => status == 'absent';
   bool get isSick => status == 'sick';
-  bool get isWsk => status == 'wsk';
+  bool get isIThub => status == 'ithub';
 }

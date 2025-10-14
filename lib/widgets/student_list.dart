@@ -100,7 +100,7 @@ class _StudentListState extends State<StudentList> {
                             _buildStatusButton('present', Icons.check, 'Присутствует', status, student.id),
                             _buildStatusButton('absent', Icons.close, 'Отсутствует', status, student.id),
                             _buildStatusButton('sick', Icons.healing, 'Больничный', status, student.id),
-                            _buildStatusButton('wsk', Icons.access_time, 'WSK', status, student.id),
+                            _buildStatusButton('ithub', Icons.access_time, 'IT-hub', status, student.id),
                             _buildStatusButton('respect', Icons.event_note, 'Уважительная', status, student.id),
                           ],
                         )
@@ -111,7 +111,7 @@ class _StudentListState extends State<StudentList> {
                               ButtonSegment(value: 'present', icon: Icon(Icons.check), tooltip: 'Присутствует'),
                               ButtonSegment(value: 'absent', icon: Icon(Icons.close), tooltip: 'Отсутствует'),
                               ButtonSegment(value: 'sick', icon: Icon(Icons.healing), tooltip: 'Больничный'),
-                              ButtonSegment(value: 'wsk', icon: Icon(Icons.access_time), tooltip: 'WSK'),
+                              ButtonSegment(value: 'ithub', icon: Icon(Icons.access_time), tooltip: 'IT-hub'),
                               ButtonSegment(value: 'respect', icon: Icon(Icons.event_note), tooltip: 'Уважительная'),
                             ],
                             selected: {status},

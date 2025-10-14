@@ -176,7 +176,7 @@ extension AttendanceSummary on AttendanceProvider {
       'present': 0,
       'absent': 0,
       'sick': 0,
-      'wsk': 0,
+      'ithub': 0,
       'marked': 0,
     };
 

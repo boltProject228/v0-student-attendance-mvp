@@ -82,7 +82,7 @@ class _ExportScreenState extends State<ExportScreen> {
               ? 'Отсутствует'
               : attendance.isSick
                   ? 'Больничный'
-                  : attendance.isWsk
+                  : attendance.isIThub
                       ? 'Уважительная'
                       : 'Не отмечено';
     }

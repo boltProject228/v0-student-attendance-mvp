@@ -225,7 +225,7 @@ class MockData {
         studentId: 's4',
         groupId: 'g1',
         date: today,
-        status: 'wsk',
+        status: 'ithub',
         updatedBy: '1',
         createdAt: today,
         updatedAt: today,
@@ -282,7 +282,7 @@ class MockData {
     final students = mockGetStudents();
     final groups = mockGetGroups();
 
-    double present = 0, absent = 0, sick = 0, wsk = 0;
+    double present = 0, absent = 0, sick = 0, ithub = 0;
     int totalRecords = 0;
 
     final start = startDate ?? DateTime.now();
@@ -298,7 +298,7 @@ class MockData {
         if (record.isPresent) present++;
         if (record.isAbsent) absent++;
         if (record.isSick) sick++;
-        if (record.isWsk) wsk++;
+        if (record.isIThub) ithub++;
         totalRecords++;
       }
     }
@@ -310,7 +310,7 @@ class MockData {
       'averagePresent': (present / total * 100).toStringAsFixed(1),
       'averageAbsent': (absent / total * 100).toStringAsFixed(1),
       'averageSick': (sick / total * 100).toStringAsFixed(1),
-      'averageWsk': (wsk / total * 100).toStringAsFixed(1),
+      'averageIThub': (ithub / total * 100).toStringAsFixed(1),
     };
   }
 }

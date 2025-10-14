@@ -7,7 +7,7 @@ class GroupCard extends StatelessWidget {
   final int presentCount;
   final int absentCount;
   final int sickCount;
-  final int wskCount;
+  final int ithubCount;
   final int markedCount;
   final VoidCallback onTap;
 
@@ -18,7 +18,7 @@ class GroupCard extends StatelessWidget {
     required this.presentCount,
     required this.absentCount,
     required this.sickCount,
-    required this.wskCount,
+    required this.ithubCount,
     required this.markedCount,
     required this.onTap,
   });
@@ -115,7 +115,7 @@ class GroupCard extends StatelessWidget {
                           ]),
                           _buildStatsRow([
                             _buildStatusText("Больничный", sickCount, Colors.orange, labelFontSize, countFontSize),
-                            _buildStatusText("WSK", wskCount, Colors.purple, labelFontSize, countFontSize),
+                            _buildStatusText("IT-hub", ithubCount, Colors.purple, labelFontSize, countFontSize),
                           ]),
                           _buildStatsRow([
                             _buildStatusText("Отмечено", markedCount, Colors.blue, labelFontSize, countFontSize),

@@ -4,7 +4,7 @@ class SummaryBar extends StatelessWidget {
   final int present;
   final int absent;
   final int sick;
-  final int wsk;
+  final int ithub;
   final int unmarked;
   final VoidCallback onSave;
 
@@ -13,7 +13,7 @@ class SummaryBar extends StatelessWidget {
     required this.present,
     required this.absent,
     required this.sick,
-    required this.wsk,
+    required this.ithub,
     required this.unmarked,
     required this.onSave,
   });
@@ -41,7 +41,7 @@ class SummaryBar extends StatelessWidget {
               _chip(Colors.green, 'Присутствует $present'),
               _chip(Colors.red, 'Отсутствует $absent'),
               _chip(Colors.orange, 'Больничный $sick'),
-              _chip(Colors.purple, 'WSK $wsk'),
+              _chip(Colors.purple, 'IT-hub $ithub'),
               _chip(Colors.grey, 'Не отмечено $unmarked'),
             ],
           ),

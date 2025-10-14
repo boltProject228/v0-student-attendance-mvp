@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import 'models/attendance.dart';
 import 'models/group.dart';
 import 'models/student.dart';
-import 'models/subject.dart';
 import 'models/user.dart';
 import 'providers/auth_provider.dart';
 import 'providers/attendance_provider.dart';

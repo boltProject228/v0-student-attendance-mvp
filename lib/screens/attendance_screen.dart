@@ -43,7 +43,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       'present': 0,
       'absent': 0,
       'sick': 0,
-      'wsk': 0,
+      'ithub': 0,
       'unmarked': 0,
     };
 
@@ -138,7 +138,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         present: _summary['present'] ?? 0,
         absent: _summary['absent'] ?? 0,
         sick: _summary['sick'] ?? 0,
-        wsk: _summary['wsk'] ?? 0,
+        ithub: _summary['ithub'] ?? 0,
         unmarked: _summary['unmarked'] ?? 0,
         onSave: _saveAttendance,
       ),

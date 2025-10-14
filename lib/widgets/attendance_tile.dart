@@ -61,7 +61,7 @@ class AttendanceTile extends StatelessWidget {
                 _statusButton('present', 'Присутствует', Colors.green),
                 _statusButton('absent', 'Отсутствует', Colors.red),
                 _statusButton('sick', 'Больничный', Colors.orange),
-                _statusButton('wsk', 'WSK', Colors.purple),
+                _statusButton('ithub', 'IT-hub', Colors.purple),
               ],
             ),
           ],

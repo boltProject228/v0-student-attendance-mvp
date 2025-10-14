@@ -2,7 +2,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user.dart';
 import '../models/group.dart';
 import '../models/student.dart';
-import '../models/subject.dart';
 import '../models/attendance.dart';
 
 class HiveService {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/group.dart';
 import '../models/student.dart';
-import '../models/subject.dart';
 import '../services/api_service.dart';
 
 class AdminProvider with ChangeNotifier {

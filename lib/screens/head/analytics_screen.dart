@@ -1,12 +1,16 @@
+import 'package:attendance_system/models/student.dart';
+import 'package:attendance_system/screens/head/analytic_attendance_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+
 import '../../providers/attendance_provider.dart';
 import '../../providers/groups_provider.dart';
 import '../../widgets/head/head_home_drawer.dart';
 import '../../models/group.dart';
+import '../../widgets/analytic_group_card.dart'; // Изменено на GroupCard для идентичности с Home
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -14,6 +18,8 @@ class AnalyticsScreen extends StatefulWidget {
   @override
   State<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
+
+enum SortOrder { ascending, descending }
 
 class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Map<String, dynamic>? _analyticsData;
@@ -23,6 +29,27 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   bool _isRange = false;
+
+  SortOrder _studentSortOrder = SortOrder.descending;
+
+  // Фильтры для групп
+  String _searchQuery = '';
+  String _selectedSpecialty = 'Все';
+  String _selectedCourse = 'Все';
+
+  final List<String> _specialties = [
+    'Все',
+    'ПО',
+    'СИБ',
+    'М(Ру)',
+    'ТЭ(Ру)',
+    'БҚЕ',
+    'АҚЖ',
+    'М(Қаз)',
+    'ТЭ(Қаз)',
+  ];
+
+  final List<String> _courses = ['Все', '1', '2', '3', '4'];
 
   @override
   void initState() {
@@ -48,7 +75,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       setState(() {
         _analyticsData = overallAnalytics;
         _groupAnalytics = groupAnalytics;
-        _studentAnalytics = studentAnalytics;
+        _studentAnalytics = _sortAnalytics(studentAnalytics, _studentSortOrder);
         _isLoading = false;
       });
     } catch (e) {
@@ -64,6 +91,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
+  List<Map<String, dynamic>> _sortAnalytics(List<Map<String, dynamic>> data, SortOrder order) {
+    data.sort((a, b) {
+      final aVal = double.parse(a['percent']);
+      final bVal = double.parse(b['percent']);
+      return order == SortOrder.ascending
+          ? aVal.compareTo(bVal)
+          : bVal.compareTo(aVal);
+    });
+    return data;
+  }
+
   Future<Map<String, dynamic>> _calculateOverallAnalytics(
     AttendanceProvider attendanceProvider,
     GroupsProvider groupsProvider,
@@ -71,8 +109,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final totalStudents = attendanceProvider.students.length;
     final totalGroups = groupsProvider.groups.length;
 
-    double present = 0, absent = 0, sick = 0, wsk = 0;
-    
+    double present = 0, absent = 0, sick = 0, ithub = 0;
     int totalRecords = 0;
 
     final start = _isRange ? _startDate : _startDate;
@@ -87,7 +124,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         present += stats['present']?.toDouble() ?? 0;
         absent += stats['absent']?.toDouble() ?? 0;
         sick += stats['sick']?.toDouble() ?? 0;
-        wsk += stats['wsk']?.toDouble() ?? 0;
+        ithub += stats['ithub']?.toDouble() ?? 0;
         totalRecords += stats['marked'] ?? 0;
       }
     }
@@ -99,7 +136,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       'averagePresent': (present / total * 100).toStringAsFixed(1),
       'averageAbsent': (absent / total * 100).toStringAsFixed(1),
       'averageSick': (sick / total * 100).toStringAsFixed(1),
-      'averageWsk': (wsk / total * 100).toStringAsFixed(1),
+      'averageIThub': (ithub / total * 100).toStringAsFixed(1),
     };
   }
 
@@ -128,12 +165,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       groupData.add({
         'groupId': group.id,
         'name': group.name,
+        'specialty': group.specialty,
+        'course': group.course,
         'percent': percent,
         'studentCount': studentCount,
       });
     }
 
-    groupData.sort((a, b) => double.parse(b['percent']).compareTo(double.parse(a['percent'])));
     return groupData;
   }
 
@@ -166,7 +204,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       });
     }
 
-    studentData.sort((a, b) => double.parse(b['percent']).compareTo(double.parse(a['percent'])));
     return studentData;
   }
 
@@ -180,6 +217,45 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return dates;
   }
 
+  String normalize(String input) {
+    String normalized = input.toUpperCase();
+    const map = {
+      'Қ': 'К',
+      'Ә': 'А',
+      'Ө': 'О',
+      'Ұ': 'У',
+      'Ғ': 'Г',
+      'Ң': 'Н',
+      'І': 'И',
+    };
+    map.forEach((key, value) {
+      normalized = normalized.replaceAll(key, value);
+    });
+    return normalized.trim();
+  }
+
+  List<Group> _filteredGroups(
+    List<Map<String, dynamic>> analytics,
+    List<Group> allGroups,
+    List<Student> students,
+  ) {
+    final normalizedQuery = normalize(_searchQuery);
+    final filteredAnalytics = analytics.where((data) {
+      final groupName = normalize(data['name']);
+      final specialty = normalize(data['specialty']);
+      final courseStr = data['course'].toString();
+
+      final matchesSearch = groupName.contains(normalizedQuery) ||
+          students.any((s) => s.groupId == data['groupId'] && normalize(s.fullName).contains(normalizedQuery));
+      final matchesCourse = _selectedCourse == 'Все' || courseStr == _selectedCourse;
+      final matchesSpecialty = _selectedSpecialty == 'Все' || specialty.contains(normalize(_selectedSpecialty));
+
+      return matchesSearch && matchesCourse && matchesSpecialty;
+    }).map((data) => data['groupId']).toSet();
+
+    return allGroups.where((group) => filteredAnalytics.contains(group.id)).toList();
+  }
+
   Color _getPercentColor(double percent) {
     if (percent >= 80) return Colors.green;
     if (percent >= 50) return Colors.orange;
@@ -188,6 +264,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final groupsProvider = Provider.of<GroupsProvider>(context);
+    final filteredGroups = _filteredGroups(_groupAnalytics, groupsProvider.groups, attendanceProvider.students);
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final dateStr = _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : '';
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Аналитика посещаемости'),
@@ -214,10 +296,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       children: [
                         _buildDateFilter(),
                         const SizedBox(height: 24),
-         
                         _buildAverageChart(),
                         const SizedBox(height: 24),
-                        _buildGroupAnalytics(),
+                        const Text('Аналитика по группам', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+                        _buildGroupFilters(isMobile),
+                        const SizedBox(height: 16),
+                        _buildGroupAnalytics(filteredGroups, attendanceProvider, dateStr),
                         const SizedBox(height: 24),
                         _buildStudentAnalytics(),
                       ],
@@ -227,7 +312,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  // 📅 Виджет фильтра даты
   Widget _buildDateFilter() {
     return Row(
       children: [
@@ -291,7 +375,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  // 🍩 Диаграмма
   Widget _buildAverageChart() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,7 +396,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         PieChartSectionData(color: Colors.green, value: double.parse(_analyticsData!['averagePresent']), title: ''),
                         PieChartSectionData(color: Colors.red, value: double.parse(_analyticsData!['averageAbsent']), title: ''),
                         PieChartSectionData(color: Colors.orange, value: double.parse(_analyticsData!['averageSick']), title: ''),
-                        PieChartSectionData(color: Colors.blue, value: double.parse(_analyticsData!['averageWsk']), title: ''),
+                        PieChartSectionData(color: Colors.purple, value: double.parse(_analyticsData!['averageIThub']), title: ''),
                       ],
                       centerSpaceRadius: 40,
                       sectionsSpace: 2,
@@ -328,7 +411,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         _buildLegendItem('Присутствовали', Colors.green, _analyticsData!['averagePresent']),
                         _buildLegendItem('Отсутствовали', Colors.red, _analyticsData!['averageAbsent']),
                         _buildLegendItem('Больничные', Colors.orange, _analyticsData!['averageSick']),
-                        _buildLegendItem('IT-hub', Colors.blue, _analyticsData!['averageWsk']),
+                        _buildLegendItem('IT-hub', Colors.purple, _analyticsData!['averageIThub']),
                       ],
                     ),
                   ),
@@ -341,55 +424,140 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  // 📈 Аналитика по группам
-  Widget _buildGroupAnalytics() {
+  Widget _buildGroupFilters(bool isMobile) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Аналитика по группам', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        if (_groupAnalytics.isEmpty)
-          const Center(child: Text('Нет данных по группам'))
-        else
-          ..._groupAnalytics.map((data) {
-            final percent = double.parse(data['percent']);
-            final color = _getPercentColor(percent);
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                title: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(data['name']),
-                    Text('${data['studentCount']} чел', style: const TextStyle(color: Colors.grey)),
-                  ],
+        TextField(
+          decoration: InputDecoration(
+            hintText: 'Поиск по группе или студенту',
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onChanged: (value) => setState(() => _searchQuery = value),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedSpecialty,
+                items: _specialties.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                onChanged: (value) => setState(() {
+                  _selectedSpecialty = value!;
+                  _selectedCourse = 'Все';
+                }),
+                decoration: InputDecoration(
+                  labelText: 'Специальность',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 6),
-                    LinearProgressIndicator(
-                      value: percent / 100,
-                      color: color,
-                      backgroundColor: Colors.grey.shade200,
-                      minHeight: 6,
-                    ),
-                  ],
-                ),
-                trailing: Text('${data['percent']}%', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
               ),
-            );
-          }).toList(),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedCourse,
+                items: _courses.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                onChanged: (value) => setState(() => _selectedCourse = value!),
+                decoration: InputDecoration(
+                  labelText: 'Курс',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 
-  // 👤 Аналитика по студентам
+  Widget _buildGroupAnalytics(
+    List<Group> filteredGroups,
+    AttendanceProvider attendanceProvider,
+    String dateStr,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        
+        filteredGroups.isEmpty
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    'Группы не найдены',
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ),
+              )
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  int crossAxisCount = 1;
+
+                  if (width > 1200) {
+                    crossAxisCount = 3;
+                  } else if (width > 800) {
+                    crossAxisCount = 2;
+                  }
+
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(bottom: 20),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 32,
+                      mainAxisExtent: 260,
+                    ),
+                    itemCount: filteredGroups.length,
+                    itemBuilder: (context, index) {
+                      final group = filteredGroups[index];
+                      final studentCount = attendanceProvider.getGroupStudentCount(group.id);
+                      final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
+
+                      return AnalyticGroupCard(
+                        group: group,
+                        studentCount: studentCount,
+                        markedCount: stats['marked'] ?? 0,
+                        presentCount: stats['present'] ?? 0,
+                        absentCount: stats['absent'] ?? 0,
+                        sickCount: stats['sick'] ?? 0,
+                        ithubCount: stats['ithub'] ?? 0,
+                        onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => AnalyticAttendanceScreen(group: group)));},
+                      );
+                    },
+                  );
+                },
+              ),
+      ],
+    );
+  }
+
   Widget _buildStudentAnalytics() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Аналитика по студентам', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Аналитика по студентам', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            PopupMenuButton<SortOrder>(
+              icon: const Icon(Icons.sort),
+              onSelected: (order) {
+                setState(() {
+                  _studentSortOrder = order;
+                  _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder);
+                });
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: SortOrder.descending, child: Text('По убыванию')),
+                const PopupMenuItem(value: SortOrder.ascending, child: Text('По возрастанию')),
+              ],
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
         if (_studentAnalytics.isEmpty)
           const Center(child: Text('Нет данных по студентам'))
@@ -415,26 +583,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  // 🧾 Маленькие карточки статистики
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: color),
-            const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            Text(title, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildLegendItem(String label, Color color, String value) {
     return Row(
       children: [
@@ -445,7 +593,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  // 🕓 Шиммер — загрузка
   Widget _buildSkeletonLoader() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
