@@ -76,22 +76,7 @@ class HiveService {
     return null;
   }
 
-  // Subjects (List<Subject>)
-  static Future<void> saveSubjects(List<Subject> subjects) async {
-    await _ensureBoxInitialized();
-    print('Saving subjects: ${subjects.length} items');
-    await _box!.put('subjects', subjects);
-    await _updateLastUpdate('subjects');
-    print('Subjects saved');
-  }
-
-  static List<Subject>? getSubjects() {
-    if (_box == null || !_box!.isOpen) return null;
-    if (_isCacheValid('subjects')) {
-      return _box!.get('subjects')?.cast<Subject>();
-    }
-    return null;
-  }
+  
 
   // Students (List<Student>)
   static Future<void> saveStudents(List<Student> students) async {

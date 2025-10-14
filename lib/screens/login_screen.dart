@@ -46,13 +46,21 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final theme = Theme.of(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // 📏 Адаптивные размеры
+    final double maxCardWidth = screenWidth < 500 ? screenWidth * 0.9 : 400;
+    final double fieldFontSize = screenWidth < 400 ? 14 : 16;
+    final double buttonFontSize = screenWidth < 400 ? 16 : 18;
+    final double buttonHeight = screenWidth < 400 ? 48 : 52;
 
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
+            constraints: BoxConstraints(maxWidth: maxCardWidth),
             child: Card(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -60,42 +68,47 @@ class _LoginScreenState extends State<LoginScreen> {
               elevation: 8,
               shadowColor: Colors.black26,
               child: Padding(
-                padding: const EdgeInsets.all(32.0),
+                padding: EdgeInsets.symmetric(
+                  horizontal: screenWidth < 400 ? 20 : 32,
+                  vertical: screenWidth < 400 ? 24 : 32,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Логотип
+                      // 📌 Логотип
                       Container(
                         alignment: Alignment.center,
                         padding: const EdgeInsets.only(bottom: 24),
                         child: CircleAvatar(
-                          radius: 40,
+                          radius: screenWidth < 400 ? 35 : 40,
                           backgroundColor: Colors.blue.shade50,
-                          child: const Icon(
+                          child: Icon(
                             Icons.school,
-                            size: 40,
-                            color: Color(0xFF2563EB),
+                            size: screenWidth < 400 ? 35 : 40,
+                            color: const Color(0xFF2563EB),
                           ),
                         ),
                       ),
 
-                      // Заголовок
+                      // 📌 Заголовок
                       Text(
                         'Система Посещаемости',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.bold,
+                          fontSize: screenWidth < 400 ? 20 : 24,
                           color: Colors.black87,
                         ),
                       ),
                       const SizedBox(height: 32),
 
-                      // Логин
+                      // 📥 Поле логина
                       TextFormField(
                         controller: _loginController,
+                        style: TextStyle(fontSize: fieldFontSize),
                         decoration: InputDecoration(
                           labelText: 'Логин',
                           prefixIcon: const Icon(Icons.person),
@@ -108,10 +121,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Пароль
+                      // 🔐 Поле пароля
                       TextFormField(
                         controller: _passwordController,
                         obscureText: !_isPasswordVisible,
+                        style: TextStyle(fontSize: fieldFontSize),
                         decoration: InputDecoration(
                           labelText: 'Пароль',
                           prefixIcon: const Icon(Icons.lock),
@@ -136,11 +150,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      // Кнопка входа
+                      // 🚪 Кнопка входа
                       FilledButton(
                         onPressed: authProvider.isLoading ? null : _handleLogin,
                         style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          minimumSize: Size(double.infinity, buttonHeight),
                           backgroundColor: Colors.blue.shade600,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -148,32 +162,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         child: authProvider.isLoading
                             ? const SizedBox(
-                                height: 20,
-                                width: 20,
+                                height: 24,
+                                width: 24,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text(
+                            : Text(
                                 'Войти',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: buttonFontSize,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Подсказка или ссылка на восстановление пароля
-                      TextButton(
-                        onPressed: () {},
-                        child: const Text(
-                          'Забыли пароль?',
-                          style: TextStyle(color: Colors.blue),
-                        ),
                       ),
                     ],
                   ),
@@ -183,7 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-      backgroundColor: Colors.grey.shade100,
     );
   }
 }

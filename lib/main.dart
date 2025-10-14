@@ -1,38 +1,31 @@
-import 'package:attendance_system/screens/head/head_home_screen.dart';
-import 'package:attendance_system/screens/teacher/teacher_home_screen.dart';
+import 'package:attendance_system/providers/admin_provider.dart';
+import 'package:attendance_system/screens/head/export_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
-
 import 'models/attendance.dart';
 import 'models/group.dart';
 import 'models/student.dart';
 import 'models/subject.dart';
 import 'models/user.dart';
-
 import 'providers/auth_provider.dart';
 import 'providers/attendance_provider.dart';
 import 'providers/groups_provider.dart';
-
 import 'screens/login_screen.dart';
-
+import 'screens/teacher/teacher_home_screen.dart';
+import 'screens/head/head_home_screen.dart';
+import 'screens/head/analytics_screen.dart';
 import 'screens/attendance_screen.dart';
-
-import 'services/api_service.dart';
 import 'services/hive_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Инициализация Hive
   await Hive.initFlutter();
   Hive.registerAdapter(AttendanceAdapter());
   Hive.registerAdapter(GroupAdapter());
   Hive.registerAdapter(StudentAdapter());
-  Hive.registerAdapter(SubjectAdapter());
   Hive.registerAdapter(UserAdapter());
   await HiveService.init();
-
   runApp(const MyApp());
 }
 
@@ -46,6 +39,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => AttendanceProvider()),
         ChangeNotifierProvider(create: (_) => GroupsProvider()),
+        ChangeNotifierProvider(create: (_) => AdminProvider()), 
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
@@ -103,28 +97,25 @@ class MyApp extends StatelessWidget {
               '/login': (context) => const LoginScreen(),
               '/teacher_home': (context) => const TeacherHomeScreen(),
               '/head_home': (context) => const HeadHomeScreen(),
+              '/analytics': (context) => const AnalyticsScreen(),
               '/attendance': (context) {
                 final group = ModalRoute.of(context)!.settings.arguments as Group;
                 return AttendanceScreen(group: group);
+              
               },
+              '/export': (context) => const ExportScreen()
             },
             onGenerateRoute: (settings) {
               if (settings.name == '/') {
                 final user = authProvider.user;
                 if (user != null) {
                   if (user.isTeacher) {
-                    return MaterialPageRoute(
-                      builder: (context) => const TeacherHomeScreen(),
-                    );
+                    return MaterialPageRoute(builder: (context) => const TeacherHomeScreen());
                   } else if (user.isHead) {
-                    return MaterialPageRoute(
-                      builder: (context) => const HeadHomeScreen(),
-                    );
+                    return MaterialPageRoute(builder: (context) => const HeadHomeScreen());
                   }
                 }
-                return MaterialPageRoute(
-                  builder: (context) => const LoginScreen(),
-                );
+                return MaterialPageRoute(builder: (context) => const LoginScreen());
               }
               return null;
             },

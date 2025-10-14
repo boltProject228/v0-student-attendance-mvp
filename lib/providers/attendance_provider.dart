@@ -148,6 +148,22 @@ class AttendanceProvider with ChangeNotifier {
     }
     return attendances;
   }
+
+  Attendance getStudentAttendance(String studentId, String date) {
+    return _attendanceList.firstWhere(
+      (a) => a.studentId == studentId && a.date.toIso8601String().split('T')[0] == date,
+      orElse: () => Attendance(
+        id: '',
+        studentId: studentId,
+        groupId: '',
+        date: DateTime.parse(date),
+        status: 'unmarked',
+        updatedBy: '',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    );
+  }
 }
 
 extension AttendanceSummary on AttendanceProvider {

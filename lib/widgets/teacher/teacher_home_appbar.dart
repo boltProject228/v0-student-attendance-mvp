@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart';
 
-AppBar buildHomeAppBar(BuildContext context, AuthProvider authProvider) {
+AppBar buildTeacherHomeAppBar(BuildContext context, AuthProvider authProvider) {
   return AppBar(
     iconTheme: const IconThemeData(color: Colors.black, size: 28),
     backgroundColor: Colors.white,

@@ -5,8 +5,8 @@ import '../../providers/groups_provider.dart';
 import '../../providers/attendance_provider.dart';
 import '../../models/group.dart';
 import '../../models/student.dart';
-import '../../widgets/home_appbar.dart';
-import '../../widgets/home_drawer.dart';
+import '../../widgets/teacher/teacher_home_appbar.dart';
+import '../../widgets/teacher/teacher_home_drawer.dart';
 import '../../widgets/home_filters.dart';
 import '../../widgets/group_card.dart';
 import '../../data/mock_data.dart';
@@ -51,10 +51,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     });
   }
 
-  /// Функция для нормализации текста: перевод в верхний регистр и замена специфических символов
   String normalize(String input) {
     String normalized = input.toUpperCase();
-
     final Map<String, String> map = {
       'Қ': 'К',
       'Ә': 'А',
@@ -64,18 +62,14 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       'Ң': 'Н',
       'І': 'И',
     };
-
     map.forEach((key, value) {
       normalized = normalized.replaceAll(key, value);
     });
-
     return normalized.trim();
   }
 
-  /// Фильтрация групп с учетом нормализации для поиска
   List<Group> _filteredGroups(List<Group> groups, List<Student> students) {
     final normalizedQuery = normalize(_searchQuery);
-
     return groups.where((group) {
       final groupName = normalize(group.name);
       final specialty = normalize(group.specialty);
@@ -101,16 +95,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
 
     final filteredGroups = _filteredGroups(groupsProvider.groups, attendanceProvider.students);
-
-    List<String> availableCourses = ['Все', '1', '2', '3', '4'];
-
-    // Верхние чипы из mockGroups
     final mockGroups = MockData.mockGetGroups();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: buildHomeAppBar(context, authProvider),
-      drawer: const HomeDrawer(),
+      appBar: buildTeacherHomeAppBar(context, authProvider),
+      drawer: const TeacherHomeDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -120,7 +110,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               selectedSpecialty: _selectedSpecialty,
               selectedCourse: _selectedCourse,
               specialties: _specialties,
-              availableCourses: availableCourses,
+              availableCourses: ['Все', '1', '2', '3', '4'],
               onSearchChanged: (value) => setState(() => _searchQuery = value),
               onSpecialtyChanged: (value) => setState(() {
                 _selectedSpecialty = value;
@@ -138,7 +128,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 50, // достаточно для ActionChip
+              height: 46,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
@@ -177,48 +167,58 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   ? const Center(child: Text('Группы не найдены'))
                   : LayoutBuilder(
                       builder: (context, constraints) {
+                        final width = constraints.maxWidth;
                         int crossAxisCount = 1;
-                        double maxWidth = constraints.maxWidth;
+                        double aspectRatio = 1.8;
 
-                        if (maxWidth > 1200) {
+                        if (width > 1200) {
                           crossAxisCount = 3;
-                        } else if (maxWidth > 800) {
+                          aspectRatio = 2.2;
+                        } else if (width > 800) {
                           crossAxisCount = 2;
+                          aspectRatio = 2.0;
+                        } else if (width < 500) {
+                          // 📱 Мобильные устройства
+                          crossAxisCount = 1;
+                          aspectRatio = 1.6;
                         }
 
                         return GridView.builder(
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: crossAxisCount,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                            childAspectRatio: 1.8,
-                          ),
-                          itemCount: filteredGroups.length,
-                          itemBuilder: (context, index) {
-                            final group = filteredGroups[index];
-                            final studentCount = attendanceProvider.getGroupStudentCount(group.id);
-                            final today = DateTime.now().toIso8601String().split('T')[0];
-                            final stats = attendanceProvider.getGroupAttendanceStats(group.id, today);
+  padding: const EdgeInsets.only(bottom: 20),
+  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: crossAxisCount,
+    crossAxisSpacing: 16,
+    mainAxisSpacing:32,
+    mainAxisExtent: 260, // 📏 фиксированная высота карточки
+  ),
+  itemCount: filteredGroups.length,
+  itemBuilder: (context, index) {
+    final group = filteredGroups[index];
+    final studentCount = attendanceProvider.getGroupStudentCount(group.id);
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final stats = attendanceProvider.getGroupAttendanceStats(group.id, today);
 
-                            return GroupCard(
-                              group: group,
-                              studentCount: studentCount,
-                              markedCount: stats['marked'] ?? 0,
-                              presentCount: stats['present'] ?? 0,
-                              absentCount: stats['absent'] ?? 0,
-                              sickCount: stats['sick'] ?? 0,
-                              wskCount: stats['wsk'] ?? 0,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => AttendanceScreen(group: group),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        );
+    return GroupCard(
+      group: group,
+      studentCount: studentCount,
+      markedCount: stats['marked'] ?? 0,
+      presentCount: stats['present'] ?? 0,
+      absentCount: stats['absent'] ?? 0,
+      sickCount: stats['sick'] ?? 0,
+      wskCount: stats['wsk'] ?? 0,
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AttendanceScreen(group: group),
+          ),
+        );
+      },
+    );
+  },
+);
+
+
                       },
                     ),
             ),

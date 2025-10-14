@@ -9,14 +9,14 @@ class AdminProvider with ChangeNotifier {
   List<User> _users = [];
   List<Group> _groups = [];
   List<Student> _students = [];
-  List<Subject> _subjects = [];
+
   bool _isLoading = false;
   String? _error;
 
   List<User> get users => _users;
   List<Group> get groups => _groups;
   List<Student> get students => _students;
-  List<Subject> get subjects => _subjects;
+
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -143,44 +143,4 @@ class AdminProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchSubjects() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      final data = await ApiService.getAdminSubjects();
-      _subjects = data.map((json) => Subject.fromJson(json)).toList();
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<bool> createSubject(Map<String, dynamic> data) async {
-    try {
-      await ApiService.createSubject(data);
-      await fetchSubjects();
-      return true;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<bool> deleteSubject(String id) async {
-    try {
-      await ApiService.deleteSubject(id);
-      await fetchSubjects();
-      return true;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return false;
-    }
-  }
 }

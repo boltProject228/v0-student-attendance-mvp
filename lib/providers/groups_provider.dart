@@ -7,12 +7,12 @@ import '../services/hive_service.dart';
 
 class GroupsProvider with ChangeNotifier {
   List<Group> _groups = [];
-  final List<Subject> _subjects = [];
+
   bool _isLoading = false;
   String? _error;
 
   List<Group> get groups => _groups;
-  List<Subject> get subjects => _subjects;
+
   bool get isLoading => _isLoading;
   String? get error => _error;
 

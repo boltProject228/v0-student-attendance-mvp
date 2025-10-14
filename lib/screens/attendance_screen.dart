@@ -118,19 +118,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView.builder(
-          itemCount: students.length,
-          itemBuilder: (context, index) {
-            final student = students[index];
-            final status = _statuses[student.id] ?? 'unmarked';
-            return AttendanceTile(
-              name: student.fullName,
-              status: status,
-              onStatusChange: (newStatus) {
-                setState(() => _statuses[student.id] = newStatus);
-              },
-            );
-          },
-        ),
+  itemCount: students.length,
+  itemBuilder: (context, index) {
+    final student = students[index];
+    final status = _statuses[student.id] ?? 'unmarked';
+    return AttendanceTile(
+      index: index + 1, // 👈 добавили нумерацию
+      name: student.fullName,
+      status: status,
+      onStatusChange: (newStatus) {
+        setState(() => _statuses[student.id] = newStatus);
+      },
+    );
+  },
+),
+
       ),
       bottomNavigationBar: SummaryBar(
         present: _summary['present'] ?? 0,

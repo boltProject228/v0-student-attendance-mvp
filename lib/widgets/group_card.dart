@@ -25,22 +25,19 @@ class GroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 600;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = constraints.maxWidth;
+        const cardHeight = 200.0;
 
-    final double titleFontSize = isMobile ? 16 : 18;
-    final double subtitleFontSize = isMobile ? 12 : 14;
-    final double countFontSize = isMobile ? 14 : 16;
-    final double labelFontSize = isMobile ? 11 : 13;
+        // 📏 Адаптивные размеры шрифтов
+        final double titleFontSize = (cardWidth * 0.055).clamp(14, 20);
+        final double subtitleFontSize = (cardWidth * 0.04).clamp(12, 16);
+        final double labelFontSize = (cardWidth * 0.035).clamp(10, 14);
+        final double countFontSize = (cardWidth * 0.045).clamp(12, 18);
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minWidth: 300,
-          maxWidth: 500,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 16.0),
+        return SizedBox(
+          height: cardHeight,
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(16),
@@ -59,7 +56,7 @@ class GroupCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 🟦 Шапка карточки (Название и общее количество)
+                  // 🟦 Шапка
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -72,7 +69,7 @@ class GroupCard extends StatelessWidget {
                         topRight: Radius.circular(16),
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -89,14 +86,10 @@ class GroupCard extends StatelessWidget {
                         ),
                         Row(
                           children: [
-                            const Icon(
-                              Icons.people_alt_rounded,
-                              size: 16,
-                              color: Colors.white70,
-                            ),
+                            const Icon(Icons.people_alt_rounded, size: 16, color: Colors.white70),
                             const SizedBox(width: 6),
                             Text(
-                              'Всего в группе: $studentCount студентов',
+                              '$studentCount студентов',
                               style: TextStyle(
                                 fontSize: subtitleFontSize,
                                 color: Colors.white70,
@@ -109,94 +102,50 @@ class GroupCard extends StatelessWidget {
                     ),
                   ),
 
-                  // 📊 Первая строка статистики
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatusText(
-                            "Присутствующие",
-                            presentCount,
-                            Colors.green,
-                            labelFontSize,
-                            countFontSize,
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildStatusText(
-                            "Отсутствующие",
-                            absentCount,
-                            Colors.red,
-                            labelFontSize,
-                            countFontSize,
-                          ),
-                        ),
-                      ],
+                  // 📊 Статистика
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildStatsRow([
+                            _buildStatusText("Присутствующие", presentCount, Colors.green, labelFontSize, countFontSize),
+                            _buildStatusText("Отсутствующие", absentCount, Colors.red, labelFontSize, countFontSize),
+                          ]),
+                          _buildStatsRow([
+                            _buildStatusText("Больничный", sickCount, Colors.orange, labelFontSize, countFontSize),
+                            _buildStatusText("WSK", wskCount, Colors.purple, labelFontSize, countFontSize),
+                          ]),
+                          _buildStatsRow([
+                            _buildStatusText("Отмечено", markedCount, Colors.blue, labelFontSize, countFontSize),
+                            _buildStatusText("Не отмечено", studentCount - markedCount, Colors.grey, labelFontSize, countFontSize),
+                          ]),
+                        ],
+                      ),
                     ),
                   ),
-
-                  // 📊 Вторая строка статистики
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatusText(
-                            "Больничный",
-                            sickCount,
-                            Colors.orange,
-                            labelFontSize,
-                            countFontSize,
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildStatusText(
-                            "WSK",
-                            wskCount,
-                            Colors.purple,
-                            labelFontSize,
-                            countFontSize,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // 📊 Третья строка статистики
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatusText(
-                            "Отмечено",
-                            markedCount,
-                            Colors.blue,
-                            labelFontSize,
-                            countFontSize,
-                          ),
-                        ),
-                        Expanded(
-                          child: _buildStatusText(
-                            "Не отмечено",
-                            studentCount - markedCount,
-                            Colors.grey,
-                            labelFontSize,
-                            countFontSize,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
                 ],
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatsRow(List<Widget> children) {
+    return Row(
+      children: children
+          .map(
+            (w) => Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: w,
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -214,6 +163,7 @@ class GroupCard extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: labelFontSize,
+            fontWeight: FontWeight.w600, // 👈 стал чуть жирнее
             color: Colors.grey.shade600,
             overflow: TextOverflow.ellipsis,
           ),

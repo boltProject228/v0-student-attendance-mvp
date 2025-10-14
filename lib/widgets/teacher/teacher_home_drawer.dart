@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart';
 
-class HomeDrawer extends StatelessWidget {
-  const HomeDrawer({super.key});
+class TeacherHomeDrawer extends StatelessWidget {
+  const TeacherHomeDrawer({super.key});
 
   @override
   Widget build(BuildContext context) {

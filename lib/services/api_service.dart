@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'hive_service.dart'; // NEW: Replaced storage_service.dart with hive_service.dart
+import 'package:intl/intl.dart';
+import '../data/mock_data.dart';
+import 'hive_service.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:3000/api';
 
   static Future<Map<String, String>> _getHeaders() async {
-    final token = HiveService.getToken(); // NEW: Use HiveService instead of StorageService
+    final token = HiveService.getToken();
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
@@ -57,6 +59,9 @@ class ApiService {
     String login,
     String password,
   ) async {
+    if (MockData.mockGetUsers().isNotEmpty) {
+      return MockData.mockLogin(login, password);
+    }
     final response = await _post('/auth/login', {
       'login': login,
       'password': password,
@@ -84,6 +89,9 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getGroups() async {
+    if (MockData.mockGetGroups().isNotEmpty) {
+      return MockData.mockGetGroups().map((g) => g.toJson()).toList();
+    }
     final response = await _get('/groups');
 
     if (response.statusCode == 200) {
@@ -104,6 +112,9 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getStudents() async {
+    if (MockData.mockGetStudents().isNotEmpty) {
+      return MockData.mockGetStudents().map((s) => s.toJson()).toList();
+    }
     final response = await _get('/students');
 
     if (response.statusCode == 200) {
@@ -117,6 +128,9 @@ class ApiService {
     String? groupId,
     String? date,
   }) async {
+    if (MockData.mockGetAttendance().isNotEmpty) {
+      return MockData.mockGetAttendance().map((a) => a.toJson()).toList();
+    }
     String endpoint = '/attendance?';
     if (groupId != null) endpoint += 'groupId=$groupId&';
     if (date != null) endpoint += 'date=$date';
@@ -133,6 +147,9 @@ class ApiService {
   static Future<Map<String, dynamic>> createAttendance(
     Map<String, dynamic> data,
   ) async {
+    if (MockData.mockGetAttendance().isNotEmpty) {
+      return data;
+    }
     final response = await _post('/attendance', data);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -155,7 +172,40 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getAnalytics({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    if (MockData.mockGetAttendance().isNotEmpty) {
+      return MockData.mockGetAnalytics(startDate: startDate, endDate: endDate);
+    }
+    String endpoint = '/analytics?';
+    if (startDate != null) endpoint += 'startDate=${DateFormat('yyyy-MM-dd').format(startDate)}&';
+    if (endDate != null) endpoint += 'endDate=${DateFormat('yyyy-MM-dd').format(endDate)}';
+
+    final response = await _get(endpoint);
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load analytics');
+    }
+  }
+
+  static Future<List<dynamic>> getStudentAnalytics(String studentId) async {
+    final response = await _get('/analytics/students?studentId=$studentId');
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load student analytics');
+    }
+  }
+
   static Future<List<dynamic>> getAdminUsers() async {
+    if (MockData.mockGetUsers().isNotEmpty) {
+      return MockData.mockGetUsers().map((u) => u.toJson()).toList();
+    }
     final response = await _get('/admin/users');
 
     if (response.statusCode == 200) {
@@ -186,6 +236,9 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getAdminGroups() async {
+    if (MockData.mockGetGroups().isNotEmpty) {
+      return MockData.mockGetGroups().map((g) => g.toJson()).toList();
+    }
     final response = await _get('/admin/groups');
 
     if (response.statusCode == 200) {
@@ -216,6 +269,9 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getAdminStudents() async {
+    if (MockData.mockGetStudents().isNotEmpty) {
+      return MockData.mockGetStudents().map((s) => s.toJson()).toList();
+    }
     final response = await _get('/admin/students');
 
     if (response.statusCode == 200) {
@@ -272,26 +328,6 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to delete subject');
-    }
-  }
-
-  static Future<Map<String, dynamic>> getAnalytics() async {
-    final response = await _get('/analytics');
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to load analytics');
-    }
-  }
-
-  static Future<List<dynamic>> getStudentAnalytics(String studentId) async {
-    final response = await _get('/analytics/students?studentId=$studentId');
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to load student analytics');
     }
   }
 }

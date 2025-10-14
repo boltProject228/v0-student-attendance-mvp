@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 class AttendanceTile extends StatelessWidget {
   final String name;
+  final int index; // 👈 номер по списку
   final String status;
   final Function(String) onStatusChange;
 
   const AttendanceTile({
     super.key,
     required this.name,
+    required this.index,
     required this.status,
     required this.onStatusChange,
   });
@@ -15,37 +17,50 @@ class AttendanceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      elevation: 1,
+      margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
       ),
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // 🧮 Номер
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Text(
+                '$index.',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+
             // 👤 Имя студента
-            Flexible(
+            Expanded(
               child: Text(
                 name,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
+                  color: Colors.black,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
 
-            // 🟡 Статусы — понятные слова
-            Row(
+            // 🟡 Статусы (компактнее)
+            const SizedBox(width: 10),
+            Wrap(
+              spacing: 6,
               children: [
                 _statusButton('present', 'Присутствует', Colors.green),
-                const SizedBox(width: 6),
                 _statusButton('absent', 'Отсутствует', Colors.red),
-                const SizedBox(width: 6),
                 _statusButton('sick', 'Больничный', Colors.orange),
-                const SizedBox(width: 6),
                 _statusButton('wsk', 'WSK', Colors.purple),
               ],
             ),
@@ -74,7 +89,7 @@ class AttendanceTile extends StatelessWidget {
           style: TextStyle(
             color: isSelected ? Colors.white : Colors.black87,
             fontWeight: FontWeight.w600,
-            fontSize: 13,
+            fontSize: 12,
           ),
         ),
       ),
