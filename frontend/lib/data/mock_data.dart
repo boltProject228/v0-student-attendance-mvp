@@ -12,11 +12,7 @@ class MockData {
       'login': 'teacher',
       'role': 'teacher',
       'createdAt': DateTime.now().toIso8601String(),
-      'settings': {
-        'theme': 'light',
-        'language': 'ru',
-        'notifications': true,
-      },
+
       'fullName': 'Базарбай Ерсултан'
     },
     {
@@ -24,10 +20,7 @@ class MockData {
       'login': 'head',
       'role': 'head',
       'createdAt': DateTime.now().subtract(const Duration(days: 5)).toIso8601String(),
-      'settings': {
-
-        'language': 'ru',
-      },
+ 
       'fullName': 'Серик Абдрахманов'
     },
     {
@@ -35,11 +28,7 @@ class MockData {
       'login': 'teacher_02',
       'role': 'teacher',
       'createdAt': DateTime.now().subtract(const Duration(days: 10)).toIso8601String(),
-      'settings': {
-  
-        'language': 'kz',
-     
-      },
+
       
       'fullName': 'Айгерим Нуртаева'
     },
@@ -49,11 +38,6 @@ class MockData {
       'login': 'teacher_02',
       'role': 'admin',
       'createdAt': DateTime.now().subtract(const Duration(days: 10)).toIso8601String(),
-      'settings': {
-    
-        'language': 'kz',
-       
-      },
       'fullName': 'admin admin'
     }
   ];

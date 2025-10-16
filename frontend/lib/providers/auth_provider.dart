@@ -1,4 +1,6 @@
 // lib/providers/auth_provider.dart
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
@@ -13,6 +15,10 @@ class AuthProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isAuthenticated => _user != null;
+
+  bool get isTeacher => _user?.isTeacher ?? false;
+  bool get isHead => _user?.isHead ?? false;
+  bool get isAdmin => _user?.isAdmin ?? false;
 
   Future<bool> login(String login, String password, BuildContext context) async {
     _isLoading = true;
@@ -32,15 +38,20 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
-      // 🔀 Перенаправление по роли
-      if (user.role == 'teacher') {
-        Navigator.pushReplacementNamed(context, '/teacher_home');
-      } else if (user.role == 'head' || user.role == 'admin') {
-        Navigator.pushReplacementNamed(context, '/head_home');
-      } else {
-        _error = 'Неизвестная роль пользователя';
-        notifyListeners();
-        return false;
+      switch (user.role) {
+        case 'teacher':
+          Navigator.pushReplacementNamed(context, '/teacher_home');
+          break;
+        case 'admin':
+          Navigator.pushReplacementNamed(context, '/admin');
+          break;
+        case 'head':
+          Navigator.pushReplacementNamed(context, '/head_home');
+          break;
+        default:
+          _error = 'Неизвестная роль пользователя: ${user.role}';
+          notifyListeners();
+          return false;
       }
 
       return true;
@@ -87,4 +98,5 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+
 }

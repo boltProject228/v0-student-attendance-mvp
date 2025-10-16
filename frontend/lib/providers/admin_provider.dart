@@ -142,4 +142,18 @@ class AdminProvider with ChangeNotifier {
       return false;
     }
   }
+
+  Future<bool> updateUser(String id, Map<String, dynamic> data) async {
+  try {
+    await ApiService.updateUser(id, data);
+    await fetchUsers();
+    return true;
+  } catch (e) {
+    _error = e.toString();  // ✅ исправлено
+    notifyListeners();
+    return false;
+  }
+}
+
+
 }

@@ -1,3 +1,5 @@
+import 'package:attendance_system/providers/auth_provider.dart';
+import 'package:attendance_system/widgets/admin/admin_home_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +26,8 @@ class _ExportScreenState extends State<ExportScreen> {
   String? _selectedGroupId;
   Map<String, List<Student>> _groupStudents = {};
   Map<String, Map<String, Map<String, String>>> _attendanceStatus = {};
+
+  
 
   @override
   void initState() {
@@ -114,6 +118,15 @@ class _ExportScreenState extends State<ExportScreen> {
     final dates = _isRange
         ? _generateDateRange(_startDate!, _endDate!)
         : [DateFormat('dd.MM.yyyy').format(_startDate!)];
+    
+     final authProvider = Provider.of<AuthProvider>(context);
+
+    Widget? drawerWidget;
+    if (authProvider.isHead) {
+      drawerWidget = const HeadHomeDrawer();
+    } else if (authProvider.isAdmin) {
+      drawerWidget = const AdminHomeDrawer();
+    }
 
     return Scaffold(
       appBar: AppBar(

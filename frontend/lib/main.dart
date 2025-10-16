@@ -1,5 +1,6 @@
-// main.dart (No changes needed beyond what's provided, but ensure Hive init is correct)
+// main.dart
 import 'package:attendance_system/providers/admin_provider.dart';
+import 'package:attendance_system/screens/admin/admin_screen.dart'; // Добавьте импорт AdminScreen
 import 'package:attendance_system/screens/head/export_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -39,7 +40,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => AttendanceProvider()),
         ChangeNotifierProvider(create: (_) => GroupsProvider()),
-        ChangeNotifierProvider(create: (_) => AdminProvider()), 
+        ChangeNotifierProvider(create: (_) => AdminProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
@@ -97,13 +98,13 @@ class MyApp extends StatelessWidget {
               '/login': (context) => const LoginScreen(),
               '/teacher_home': (context) => const TeacherHomeScreen(),
               '/head_home': (context) => const HeadHomeScreen(),
+              '/admin': (context) => const AdminScreen(), // Добавлен маршрут для AdminScreen
               '/analytics': (context) => const AnalyticsScreen(),
               '/attendance': (context) {
                 final group = ModalRoute.of(context)!.settings.arguments as Group;
                 return AttendanceScreen(group: group);
-              
               },
-              '/export': (context) => const ExportScreen()
+              '/export': (context) => const ExportScreen(),
             },
             onGenerateRoute: (settings) {
               if (settings.name == '/') {
@@ -111,8 +112,10 @@ class MyApp extends StatelessWidget {
                 if (user != null) {
                   if (user.role == 'teacher') {
                     return MaterialPageRoute(builder: (context) => const TeacherHomeScreen());
-                  } else if (user.role == 'head' || user.role == 'admin') {
+                  } else if (user.role == 'head') {
                     return MaterialPageRoute(builder: (context) => const HeadHomeScreen());
+                  } else if (user.role == 'admin') {
+                    return MaterialPageRoute(builder: (context) => const AdminScreen()); // Перенаправление для admin
                   }
                 }
                 return MaterialPageRoute(builder: (context) => const LoginScreen());

@@ -316,6 +316,27 @@ app.post('/api/setup/admin', async (req, res) => {
   }
 });
 
+// ✅ Обновление пользователя (head/admin)
+app.put('/api/admin/users/:id', authenticate, isHeadOrAdmin, async (req, res) => {
+  try {
+    const { login, fullName, role, password } = req.body;
+
+    const updateData = {};
+    if (login) updateData.login = login;
+    if (fullName) updateData.fullName = fullName;
+    if (role) updateData.role = role;
+    if (password) updateData.password = bcrypt.hashSync(password, 10); // если передан новый пароль — хешируем
+
+    const updatedUser = await User.findByIdAndUpdate(req.params.id, updateData, { new: true }).select('-password');
+    if (!updatedUser) return res.status(404).json({ error: 'User not found' });
+
+    res.status(200).json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 

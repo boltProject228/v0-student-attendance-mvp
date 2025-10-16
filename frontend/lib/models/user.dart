@@ -11,7 +11,7 @@ class User {
   final String login;
 
   @HiveField(2)
-  final String role;
+  final String role; // teacher | head | admin
 
   @HiveField(3)
   final DateTime createdAt;
@@ -19,12 +19,15 @@ class User {
   @HiveField(4)
   final String? fullName;
 
+
+
   User({
     required this.id,
     required this.login,
     required this.role,
     required this.createdAt,
     this.fullName,
+
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -35,7 +38,6 @@ class User {
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
-      // ✅ поддерживаем обе версии ключей
       fullName: json['fullName'] ?? json['fullname'],
     );
   }
@@ -50,6 +52,21 @@ class User {
     };
   }
 
-  bool get isHead => role == 'head';
+  /// ✅ Удобные геттеры для проверки роли
   bool get isTeacher => role == 'teacher';
+  bool get isHead => role == 'head';
+  bool get isAdmin => role == 'admin';
+
+  /// Для отрисовки человеко-понятного названия
+  String get roleDisplay {
+    switch (role) {
+      case 'admin':
+        return 'Администратор';
+      case 'head':
+        return 'Заведующий';
+      case 'teacher':
+      default:
+        return 'Преподаватель';
+    }
+  }
 }

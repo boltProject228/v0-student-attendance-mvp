@@ -1,5 +1,7 @@
 import 'package:attendance_system/models/student.dart';
+import 'package:attendance_system/providers/auth_provider.dart';
 import 'package:attendance_system/screens/head/analytic_attendance_screen.dart';
+import 'package:attendance_system/widgets/admin/admin_home_drawer.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -102,6 +104,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     });
     return data;
   }
+
+  
 
   Future<Map<String, dynamic>> _calculateOverallAnalytics(
     AttendanceProvider attendanceProvider,
@@ -270,6 +274,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final filteredGroups = _filteredGroups(_groupAnalytics, groupsProvider.groups, attendanceProvider.students);
     final isMobile = MediaQuery.of(context).size.width < 600;
     final dateStr = _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : '';
+    final authProvider = Provider.of<AuthProvider>(context);
+
+    Widget? drawerWidget;
+    if (authProvider.isHead) {
+      drawerWidget = const HeadHomeDrawer();
+    } else if (authProvider.isAdmin) {
+      drawerWidget = const AdminHomeDrawer();
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -283,7 +295,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ),
         ],
       ),
-      drawer: const HeadHomeDrawer(),
+      drawer: drawerWidget,
+
       body: RefreshIndicator(
         onRefresh: _loadAnalytics,
         child: _isLoading
@@ -544,19 +557,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('Аналитика по студентам', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            PopupMenuButton<SortOrder>(
-              icon: const Icon(Icons.sort),
-              onSelected: (order) {
-                setState(() {
-                  _studentSortOrder = order;
-                  _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder);
-                });
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: SortOrder.descending, child: Text('По убыванию')),
-                const PopupMenuItem(value: SortOrder.ascending, child: Text('По возрастанию')),
-              ],
-            ),
           ],
         ),
         const SizedBox(height: 16),

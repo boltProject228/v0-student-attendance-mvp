@@ -222,6 +222,15 @@ class ApiService {
     if (response.statusCode != 201) throw Exception('Failed to setup admin: ${response.statusCode} ${response.data['error']}');
   }
 
+    /// ✏️ Обновление пользователя (head/admin)
+  static Future<Map<String, dynamic>> updateUser(String id, Map<String, dynamic> data) async {
+    final response = await _put('/admin/users/$id', data);
+    if (response.statusCode == 200) {
+      return response.data as Map<String, dynamic>;
+    }
+    throw Exception('Failed to update user: ${response.statusCode} ${response.data['error']}');
+  }
+
   // -------------------
   // Ping for testing connection
   // -------------------
