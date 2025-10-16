@@ -18,7 +18,6 @@
         "hive",
         "hive_flutter",
         "hooks_riverpod",
-        "http",
         "intl",
         "provider",
         "shimmer",
@@ -195,16 +194,6 @@
         "meta",
         "mime",
         "path"
-      ]
-    },
-    {
-      "name": "http",
-      "version": "1.5.0",
-      "dependencies": [
-        "async",
-        "http_parser",
-        "meta",
-        "web"
       ]
     },
     {
@@ -718,11 +707,6 @@
       ]
     },
     {
-      "name": "web",
-      "version": "1.1.1",
-      "dependencies": []
-    },
-    {
       "name": "state_notifier",
       "version": "1.0.0",
       "dependencies": [
@@ -762,6 +746,16 @@
       "version": "1.0.0",
       "dependencies": [
         "flutter"
+      ]
+    },
+    {
+      "name": "http",
+      "version": "1.5.0",
+      "dependencies": [
+        "async",
+        "http_parser",
+        "meta",
+        "web"
       ]
     },
     {
@@ -829,6 +823,11 @@
       "dependencies": [
         "web"
       ]
+    },
+    {
+      "name": "web",
+      "version": "1.1.1",
+      "dependencies": []
     },
     {
       "name": "json_annotation",

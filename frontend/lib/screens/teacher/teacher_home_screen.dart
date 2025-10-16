@@ -110,7 +110,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               selectedSpecialty: _selectedSpecialty,
               selectedCourse: _selectedCourse,
               specialties: _specialties,
-              availableCourses: ['Все', '1', '2', '3', '4'],
+              availableCourses: const ['Все', '1', '2', '3', '4'],
               onSearchChanged: (value) => setState(() => _searchQuery = value),
               onSpecialtyChanged: (value) => setState(() {
                 _selectedSpecialty = value;

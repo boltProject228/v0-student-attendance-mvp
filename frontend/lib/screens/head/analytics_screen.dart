@@ -442,7 +442,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           children: [
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _selectedSpecialty,
+                initialValue: _selectedSpecialty,
                 items: _specialties.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                 onChanged: (value) => setState(() {
                   _selectedSpecialty = value!;
@@ -457,7 +457,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: DropdownButtonFormField<String>(
-                value: _selectedCourse,
+                initialValue: _selectedCourse,
                 items: _courses.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                 onChanged: (value) => setState(() => _selectedCourse = value!),
                 decoration: InputDecoration(
@@ -579,7 +579,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 trailing: Text('${data['percent']}%', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
               ),
             );
-          }).toList(),
+          }),
       ],
     );
   }

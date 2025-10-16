@@ -1,18 +1,23 @@
 // lib/services/api_service.dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import '../data/mock_data.dart';
 import 'hive_service.dart';
 
 class ApiService {
-  // Если используешь Android эмулятор -> 10.0.2.2, если реальный девайс или web -> localhost
+  // База URL: localhost для Web/iOS
   static String get baseUrl {
-    // return 'http://10.0.2.2:5000/api'; // android emulator
+    // Для Web
     return 'http://localhost:5000/api';
+    // Для реального устройства замени на: 'http://<PUBLIC_IP>:5000/api' (например, 'http://46.42.238.111:5000/api')
   }
 
-  static const Duration _timeout = Duration(seconds: 15);
+  static final Dio _dio = Dio()
+    ..options = BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+    );
 
   static Future<Map<String, String>> _getHeaders() async {
     final token = HiveService.getToken();
@@ -25,28 +30,39 @@ class ApiService {
     return headers;
   }
 
-  static Future<http.Response> _get(String endpoint) async {
+  static Future<Response> _get(String endpoint, {Map<String, dynamic>? queryParameters}) async {
     final headers = await _getHeaders();
-    final uri = Uri.parse('$baseUrl$endpoint');
-    return await http.get(uri, headers: headers).timeout(_timeout);
+    return await _dio.get(
+      endpoint,
+      options: Options(headers: headers),
+      queryParameters: queryParameters,
+    );
   }
 
-  static Future<http.Response> _post(String endpoint, Map<String, dynamic> body) async {
+  static Future<Response> _post(String endpoint, Map<String, dynamic> body) async {
     final headers = await _getHeaders();
-    final uri = Uri.parse('$baseUrl$endpoint');
-    return await http.post(uri, headers: headers, body: jsonEncode(body)).timeout(_timeout);
+    return await _dio.post(
+      endpoint,
+      data: body,
+      options: Options(headers: headers),
+    );
   }
 
-  static Future<http.Response> _put(String endpoint, Map<String, dynamic> body) async {
+  static Future<Response> _put(String endpoint, Map<String, dynamic> body) async {
     final headers = await _getHeaders();
-    final uri = Uri.parse('$baseUrl$endpoint');
-    return await http.put(uri, headers: headers, body: jsonEncode(body)).timeout(_timeout);
+    return await _dio.put(
+      endpoint,
+      data: body,
+      options: Options(headers: headers),
+    );
   }
 
-  static Future<http.Response> _delete(String endpoint) async {
+  static Future<Response> _delete(String endpoint) async {
     final headers = await _getHeaders();
-    final uri = Uri.parse('$baseUrl$endpoint');
-    return await http.delete(uri, headers: headers).timeout(_timeout);
+    return await _dio.delete(
+      endpoint,
+      options: Options(headers: headers),
+    );
   }
 
   // -------------------
@@ -58,9 +74,9 @@ class ApiService {
     }
     final response = await _post('/auth/login', {'login': login, 'password': password});
     if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+      return response.data as Map<String, dynamic>;
     }
-    throw Exception('Login failed: ${response.statusCode} ${response.body}');
+    throw Exception('Login failed: ${response.statusCode} ${response.data}');
   }
 
   static Future<void> logout() async {
@@ -74,9 +90,9 @@ class ApiService {
   static Future<Map<String, dynamic>> getCurrentUser() async {
     final response = await _get('/auth/me');
     if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+      return response.data as Map<String, dynamic>;
     }
-    throw Exception('Failed to get current user: ${response.statusCode}');
+    throw Exception('Failed to get current user: ${response.statusCode} ${response.data}');
   }
 
   // -------------------
@@ -87,8 +103,8 @@ class ApiService {
       return MockData.mockGetGroups().map((g) => g.toJson()).toList();
     }
     final response = await _get('/groups');
-    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
-    throw Exception('Failed to load groups: ${response.statusCode}');
+    if (response.statusCode == 200) return response.data as List<dynamic>;
+    throw Exception('Failed to load groups: ${response.statusCode} ${response.data}');
   }
 
   static Future<List<dynamic>> getStudents() async {
@@ -96,20 +112,20 @@ class ApiService {
       return MockData.mockGetStudents().map((s) => s.toJson()).toList();
     }
     final response = await _get('/students');
-    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
-    throw Exception('Failed to load students: ${response.statusCode}');
+    if (response.statusCode == 200) return response.data as List<dynamic>;
+    throw Exception('Failed to load students: ${response.statusCode} ${response.data}');
   }
 
   static Future<List<dynamic>> getAttendance({String? groupId, String? date}) async {
     if (MockData.mockGetAttendance().isNotEmpty) {
       return MockData.mockGetAttendance().map((a) => a.toJson()).toList();
     }
-    String endpoint = '/attendance?';
-    if (groupId != null) endpoint += 'groupId=$groupId&';
-    if (date != null) endpoint += 'date=$date';
-    final response = await _get(endpoint);
-    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
-    throw Exception('Failed to load attendance: ${response.statusCode}');
+    final query = <String, dynamic>{};
+    if (groupId != null) query['groupId'] = groupId;
+    if (date != null) query['date'] = date;
+    final response = await _get('/attendance', queryParameters: query.isNotEmpty ? query : null);
+    if (response.statusCode == 200) return response.data as List<dynamic>;
+    throw Exception('Failed to load attendance: ${response.statusCode} ${response.data}');
   }
 
   static Future<Map<String, dynamic>> createAttendance(Map<String, dynamic> data) async {
@@ -118,16 +134,15 @@ class ApiService {
     }
     final response = await _post('/attendance', data);
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
+      return response.data as Map<String, dynamic>;
     }
-    throw Exception('Failed to create attendance: ${response.statusCode}');
+    throw Exception('Failed to create attendance: ${response.statusCode} ${response.data}');
   }
 
-  // Update accepts ?id=... like in your client code (можно поменять на /attendance/:id на бэке)
   static Future<Map<String, dynamic>> updateAttendance(String id, Map<String, dynamic> data) async {
     final response = await _put('/attendance?id=$id', data);
-    if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
-    throw Exception('Failed to update attendance: ${response.statusCode}');
+    if (response.statusCode == 200) return response.data as Map<String, dynamic>;
+    throw Exception('Failed to update attendance: ${response.statusCode} ${response.data}');
   }
 
   // -------------------
@@ -137,18 +152,18 @@ class ApiService {
     if (MockData.mockGetAttendance().isNotEmpty) {
       return MockData.mockGetAnalytics(startDate: startDate, endDate: endDate);
     }
-    String endpoint = '/analytics?';
-    if (startDate != null) endpoint += 'startDate=${DateFormat('yyyy-MM-dd').format(startDate)}&';
-    if (endDate != null) endpoint += 'endDate=${DateFormat('yyyy-MM-dd').format(endDate)}';
-    final response = await _get(endpoint);
-    if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
-    throw Exception('Failed to load analytics: ${response.statusCode}');
+    final query = <String, dynamic>{};
+    if (startDate != null) query['startDate'] = DateFormat('yyyy-MM-dd').format(startDate);
+    if (endDate != null) query['endDate'] = DateFormat('yyyy-MM-dd').format(endDate);
+    final response = await _get('/analytics', queryParameters: query.isNotEmpty ? query : null);
+    if (response.statusCode == 200) return response.data as Map<String, dynamic>;
+    throw Exception('Failed to load analytics: ${response.statusCode} ${response.data}');
   }
 
   static Future<List<dynamic>> getStudentAnalytics(String studentId) async {
-    final response = await _get('/analytics/students?studentId=$studentId');
-    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
-    throw Exception('Failed to load student analytics: ${response.statusCode}');
+    final response = await _get('/analytics/students', queryParameters: {'studentId': studentId});
+    if (response.statusCode == 200) return response.data as List<dynamic>;
+    throw Exception('Failed to load student analytics: ${response.statusCode} ${response.data}');
   }
 
   // -------------------
@@ -157,71 +172,71 @@ class ApiService {
   static Future<List<dynamic>> getAdminUsers() async {
     if (MockData.mockGetUsers().isNotEmpty) return MockData.mockGetUsers().map((u) => u.toJson()).toList();
     final response = await _get('/admin/users');
-    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
-    throw Exception('Failed to load users: ${response.statusCode}');
+    if (response.statusCode == 200) return response.data as List<dynamic>;
+    throw Exception('Failed to load users: ${response.statusCode} ${response.data}');
   }
 
   static Future<Map<String, dynamic>> createUser(Map<String, dynamic> data) async {
     final response = await _post('/admin/users', data);
-    if (response.statusCode == 200 || response.statusCode == 201) return jsonDecode(response.body) as Map<String, dynamic>;
-    throw Exception('Failed to create user: ${response.statusCode}');
+    if (response.statusCode == 200 || response.statusCode == 201) return response.data as Map<String, dynamic>;
+    throw Exception('Failed to create user: ${response.statusCode} ${response.data}');
   }
 
   static Future<void> deleteUser(String id) async {
     final response = await _delete('/admin/users?id=$id');
-    if (response.statusCode != 200) throw Exception('Failed to delete user: ${response.statusCode}');
+    if (response.statusCode != 200) throw Exception('Failed to delete user: ${response.statusCode} ${response.data}');
   }
 
   static Future<List<dynamic>> getAdminGroups() async {
     if (MockData.mockGetGroups().isNotEmpty) return MockData.mockGetGroups().map((g) => g.toJson()).toList();
     final response = await _get('/admin/groups');
-    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
-    throw Exception('Failed to load admin groups: ${response.statusCode}');
+    if (response.statusCode == 200) return response.data as List<dynamic>;
+    throw Exception('Failed to load admin groups: ${response.statusCode} ${response.data}');
   }
 
   static Future<Map<String, dynamic>> createGroup(Map<String, dynamic> data) async {
     final response = await _post('/admin/groups', data);
-    if (response.statusCode == 200 || response.statusCode == 201) return jsonDecode(response.body) as Map<String, dynamic>;
-    throw Exception('Failed to create group: ${response.statusCode}');
+    if (response.statusCode == 200 || response.statusCode == 201) return response.data as Map<String, dynamic>;
+    throw Exception('Failed to create group: ${response.statusCode} ${response.data}');
   }
 
   static Future<void> deleteGroup(String id) async {
     final response = await _delete('/admin/groups?id=$id');
-    if (response.statusCode != 200) throw Exception('Failed to delete group: ${response.statusCode}');
+    if (response.statusCode != 200) throw Exception('Failed to delete group: ${response.statusCode} ${response.data}');
   }
 
   static Future<List<dynamic>> getAdminStudents() async {
     if (MockData.mockGetStudents().isNotEmpty) return MockData.mockGetStudents().map((s) => s.toJson()).toList();
     final response = await _get('/admin/students');
-    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
-    throw Exception('Failed to load students: ${response.statusCode}');
+    if (response.statusCode == 200) return response.data as List<dynamic>;
+    throw Exception('Failed to load students: ${response.statusCode} ${response.data}');
   }
 
   static Future<Map<String, dynamic>> createStudent(Map<String, dynamic> data) async {
     final response = await _post('/admin/students', data);
-    if (response.statusCode == 200 || response.statusCode == 201) return jsonDecode(response.body) as Map<String, dynamic>;
-    throw Exception('Failed to create student: ${response.statusCode}');
+    if (response.statusCode == 200 || response.statusCode == 201) return response.data as Map<String, dynamic>;
+    throw Exception('Failed to create student: ${response.statusCode} ${response.data}');
   }
 
   static Future<void> deleteStudent(String id) async {
     final response = await _delete('/admin/students?id=$id');
-    if (response.statusCode != 200) throw Exception('Failed to delete student: ${response.statusCode}');
+    if (response.statusCode != 200) throw Exception('Failed to delete student: ${response.statusCode} ${response.data}');
   }
 
   static Future<List<dynamic>> getAdminSubjects() async {
     final response = await _get('/admin/subjects');
-    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
-    throw Exception('Failed to load subjects: ${response.statusCode}');
+    if (response.statusCode == 200) return response.data as List<dynamic>;
+    throw Exception('Failed to load subjects: ${response.statusCode} ${response.data}');
   }
 
   static Future<Map<String, dynamic>> createSubject(Map<String, dynamic> data) async {
     final response = await _post('/admin/subjects', data);
-    if (response.statusCode == 200 || response.statusCode == 201) return jsonDecode(response.body) as Map<String, dynamic>;
-    throw Exception('Failed to create subject: ${response.statusCode}');
+    if (response.statusCode == 200 || response.statusCode == 201) return response.data as Map<String, dynamic>;
+    throw Exception('Failed to create subject: ${response.statusCode} ${response.data}');
   }
 
   static Future<void> deleteSubject(String id) async {
     final response = await _delete('/admin/subjects?id=$id');
-    if (response.statusCode != 200) throw Exception('Failed to delete subject: ${response.statusCode}');
+    if (response.statusCode != 200) throw Exception('Failed to delete subject: ${response.statusCode} ${response.data}');
   }
 }

@@ -60,8 +60,8 @@ class _ExportScreenState extends State<ExportScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Не удалось загрузить данные'),
+          const SnackBar(
+            content: Text('Не удалось загрузить данные'),
             backgroundColor: Colors.red,
           ),
         );
@@ -171,8 +171,7 @@ class _ExportScreenState extends State<ExportScreen> {
                                               onPrimary: Colors.white,
                                               surface: Colors.white,
                                               onSurface: Colors.black,
-                                            ),
-                                            dialogBackgroundColor: Colors.white,
+                                            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
                                           ),
                                           child: child!,
                                         );
@@ -223,7 +222,7 @@ class _ExportScreenState extends State<ExportScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          value: _selectedGroupId,
+                          initialValue: _selectedGroupId,
                           items: [
                             const DropdownMenuItem(
                               value: null,
