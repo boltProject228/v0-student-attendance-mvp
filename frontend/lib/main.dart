@@ -1,3 +1,4 @@
+// main.dart (No changes needed beyond what's provided, but ensure Hive init is correct)
 import 'package:attendance_system/providers/admin_provider.dart';
 import 'package:attendance_system/screens/head/export_screen.dart';
 import 'package:flutter/material.dart';
@@ -108,9 +109,9 @@ class MyApp extends StatelessWidget {
               if (settings.name == '/') {
                 final user = authProvider.user;
                 if (user != null) {
-                  if (user.isTeacher) {
+                  if (user.role == 'teacher') {
                     return MaterialPageRoute(builder: (context) => const TeacherHomeScreen());
-                  } else if (user.isHead) {
+                  } else if (user.role == 'head' || user.role == 'admin') {
                     return MaterialPageRoute(builder: (context) => const HeadHomeScreen());
                   }
                 }

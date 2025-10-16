@@ -1,5 +1,5 @@
+// lib/providers/groups_provider.dart
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart'; // NEW
 import '../models/group.dart';
 import '../services/api_service.dart';
 import '../services/hive_service.dart';
@@ -15,8 +15,6 @@ class GroupsProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  static const bool useMock = true; // NEW
-
   Future<void> fetchGroups() async {
     _isLoading = true;
     _error = null;
@@ -31,12 +29,7 @@ class GroupsProvider with ChangeNotifier {
     }
 
     try {
-      List<dynamic> data;
-      if (useMock) {
-        data = MockData.mockGetGroups().map((g) => g.toJson()).toList();
-      } else {
-        data = await ApiService.getGroups();
-      }
+      final data = await ApiService.getGroups();
       _groups = data.map((json) => Group.fromJson(json)).toList();
       await HiveService.saveGroups(_groups);
       _isLoading = false;
@@ -47,6 +40,4 @@ class GroupsProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
- 
 }

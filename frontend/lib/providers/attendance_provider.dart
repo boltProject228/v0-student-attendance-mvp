@@ -1,5 +1,5 @@
+// lib/providers/attendance_provider.dart
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
 import '../models/attendance.dart';
 import '../models/student.dart';
 import '../services/api_service.dart';
@@ -16,8 +16,6 @@ class AttendanceProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  static const bool useMock = true;
-
   Future<void> fetchAttendance({String? groupId, String? date}) async {
     _isLoading = true;
     _error = null;
@@ -32,12 +30,7 @@ class AttendanceProvider with ChangeNotifier {
     }
 
     try {
-      List<dynamic> data;
-      if (useMock) {
-        data = MockData.mockGetAttendance().map((a) => a.toJson()).toList();
-      } else {
-        data = await ApiService.getAttendance(groupId: groupId, date: date);
-      }
+      final data = await ApiService.getAttendance(groupId: groupId, date: date);
       _attendanceList = data.map((json) => Attendance.fromJson(json)).toList();
       await HiveService.saveAttendance(_attendanceList);
       _isLoading = false;
@@ -58,12 +51,7 @@ class AttendanceProvider with ChangeNotifier {
     }
 
     try {
-      List<dynamic> data;
-      if (useMock) {
-        data = MockData.mockGetStudents().map((s) => s.toJson()).toList();
-      } else {
-        data = await ApiService.getStudents();
-      }
+      final data = await ApiService.getStudents();
       _students = data.map((json) => Student.fromJson(json)).toList();
       await HiveService.saveStudents(_students);
       notifyListeners();
@@ -75,26 +63,9 @@ class AttendanceProvider with ChangeNotifier {
 
   Future<String?> createAttendance(Map<String, dynamic> data) async {
     try {
-      String? newId;
-      if (!useMock) {
-        final resp = await ApiService.createAttendance(data);
-        newId = resp['_id'] ?? resp['id'];
-        await fetchAttendance();
-      } else {
-        newId = 'a${_attendanceList.length + 1}';
-        var newAtt = Attendance(
-          id: newId,
-          studentId: data['studentId'],
-          groupId: data['groupId'],
-          date: DateTime.parse(data['date']),
-          status: data['status'],
-          updatedBy: data['updatedBy'] ?? '1',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-        _attendanceList.add(newAtt);
-        await HiveService.saveAttendance(_attendanceList);
-      }
+      final resp = await ApiService.createAttendance(data);
+      final newId = resp['_id'] ?? resp['id'];
+      await fetchAttendance();
       notifyListeners();
       return newId;
     } catch (e) {
@@ -106,27 +77,8 @@ class AttendanceProvider with ChangeNotifier {
 
   Future<bool> updateAttendance(String id, Map<String, dynamic> data) async {
     try {
-      if (!useMock) {
-        await ApiService.updateAttendance(id, data);
-        await fetchAttendance();
-      } else {
-        bool found = false;
-        for (int i = 0; i < _attendanceList.length; i++) {
-          if (_attendanceList[i].id == id) {
-            _attendanceList[i] = _attendanceList[i].copyWith(
-              status: data['status'],
-              updatedBy: data['updatedBy'] ?? _attendanceList[i].updatedBy,
-              updatedAt: DateTime.now(),
-            );
-            found = true;
-            break;
-          }
-        }
-        if (!found) {
-          throw 'Attendance not found';
-        }
-        await HiveService.saveAttendance(_attendanceList);
-      }
+      await ApiService.updateAttendance(id, data);
+      await fetchAttendance();
       notifyListeners();
       return true;
     } catch (e) {

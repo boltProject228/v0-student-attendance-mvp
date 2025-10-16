@@ -1,3 +1,4 @@
+// lib/providers/admin_provider.dart
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../models/group.dart';
@@ -141,5 +142,4 @@ class AdminProvider with ChangeNotifier {
       return false;
     }
   }
-
 }

@@ -1,6 +1,6 @@
-import 'package:attendance_system/models/user.dart';
+// lib/providers/auth_provider.dart
 import 'package:flutter/material.dart';
-import '../data/mock_data.dart';
+import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/hive_service.dart';
 
@@ -14,21 +14,13 @@ class AuthProvider with ChangeNotifier {
   String? get error => _error;
   bool get isAuthenticated => _user != null;
 
-  static const bool useMock = true;
-
   Future<bool> login(String login, String password, BuildContext context) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      Map<String, dynamic> response;
-      if (useMock) {
-        response = MockData.mockLogin(login, password);
-      } else {
-        response = await ApiService.login(login, password);
-      }
-
+      final response = await ApiService.login(login, password);
       final token = response['token'];
       final userData = response['user'];
 
@@ -40,21 +32,10 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
-      // 📥 Загрузка мок-данных
-      if (useMock) {
-        try {
-          await _loadMockData();
-        } catch (e) {
-          print('Failed to load mock data: $e');
-          _error = 'Ошибка загрузки данных: $e';
-          notifyListeners();
-        }
-      }
-
       // 🔀 Перенаправление по роли
-      if (user.isTeacher) {
+      if (user.role == 'teacher') {
         Navigator.pushReplacementNamed(context, '/teacher_home');
-      } else if (user.isHead) {
+      } else if (user.role == 'head' || user.role == 'admin') {
         Navigator.pushReplacementNamed(context, '/head_home');
       } else {
         _error = 'Неизвестная роль пользователя';
@@ -72,25 +53,9 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _loadMockData() async {
-    print('📊 Загрузка моковых данных...');
-    final groups = MockData.mockGetGroups();
-    await HiveService.saveGroups(groups);
-
-    final students = MockData.mockGetStudents();
-    await HiveService.saveStudents(students);
-
-    final attendance = MockData.mockGetAttendance();
-    await HiveService.saveAttendance(attendance);
-
-    print('✅ Моковые данные успешно загружены');
-  }
-
   Future<void> logout() async {
     try {
-      if (!useMock) {
-        await ApiService.logout();
-      }
+      await ApiService.logout();
     } catch (e) {
       print('Logout error: $e');
     }
@@ -111,19 +76,7 @@ class AuthProvider with ChangeNotifier {
     }
 
     try {
-      Map<String, dynamic> userData;
-      if (useMock) {
-        userData = {
-          'id': 'mock',
-          'login': 'mock_user',
-          'role': 'teacher',
-          'fullName': 'Моковый Преподаватель',
-          'createdAt': DateTime.now().toIso8601String(),
-        };
-      } else {
-        userData = await ApiService.getCurrentUser();
-      }
-
+      final userData = await ApiService.getCurrentUser();
       final user = User.fromJson(userData);
       await HiveService.saveUser(user);
       _user = user;
