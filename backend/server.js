@@ -45,17 +45,15 @@ app.use(
 
 console.log('📡 MONGO_URL:', process.env.MONGO_URL || 'No MONGO_URL provided');
 
-
-// Connect to MongoDB with options for MongoDB Atlas
 mongoose
   .connect(process.env.MONGO_URL, {
-    serverSelectionTimeoutMS: 5000, // Timeout for server selection
-    socketTimeoutMS: 45000, // Timeout for socket inactivity
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
   })
   .then(() => console.log('✅ MongoDB connected successfully'))
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err.message);
-    process.exit(1); // Exit process on connection failure
+    process.exit(1);
   });
 
 // Mongoose schemas
@@ -227,40 +225,101 @@ app.delete('/api/admin/students/:id', authenticate, isHeadOrAdmin, async (req, r
   }
 });
 
+ // 🚀 НОВЫЙ МАРШРУТ: PUT (Обновление пользователя)
+app.put('/api/admin/users/:id', authenticate, isHeadOrAdmin, async (req, res) => {
+  try {
+    const { fullName, login, role, password } = req.body;
+    const updateData = { fullName, login, role };
+    
+    // Если в теле запроса передан новый пароль, его нужно хешировать
+    if (password) {
+      updateData.password = bcrypt.hashSync(password, 10);
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      req.params.id, 
+      updateData, 
+      { new: true, runValidators: true } // `new: true` возвращает обновленный документ; `runValidators: true` проверяет схему
+    );
+
+    if (!updated) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Возвращаем обновленного пользователя, исключая пароль
+    const userResponse = updated.toObject();
+    delete userResponse.password;
+
+    res.status(200).json(userResponse);
+  } catch (err) {
+    console.error('User update error:', err);
+    // Обработка ошибки уникальности (например, если логин уже занят)
+    if (err.code === 11000) {
+      return res.status(400).json({ error: 'Login is already taken' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Attendance CRUD
 app.get('/api/attendance', authenticate, async (req, res) => {
   try {
     const { groupId, date } = req.query;
     const filter = {};
     if (groupId) filter.groupId = groupId;
-    if (date) filter.date = new Date(date);
-    const attendance = await Attendance.find(filter);
+    if (date) {
+      const start = new Date(date); // yyyy-mm-ddT00:00:00Z
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      filter.date = { $gte: start, $lt: end };
+    }
+    const attendance = await Attendance.find(filter).populate('updatedBy', 'fullName role');
     res.status(200).json(attendance);
   } catch (err) {
+    console.error('Attendance fetch error:', err); // Лог для дебага
     res.status(500).json({ error: err.message });
   }
 });
 
+// В post/put/delete добавить console.error при catch для дебага
 app.post('/api/attendance', authenticate, async (req, res) => {
   try {
     const attendance = new Attendance({ ...req.body, updatedBy: req.user.id });
     await attendance.save();
     res.status(201).json(attendance);
   } catch (err) {
+    console.error('Attendance create error:', err); // Лог
     res.status(500).json({ error: err.message });
   }
 });
 
+// Аналогично для put и delete
 app.put('/api/attendance/:id', authenticate, async (req, res) => {
   try {
+    const existing = await Attendance.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Attendance not found' });
+    if (req.body.updatedAt && new Date(req.body.updatedAt) < existing.updatedAt) {
+      return res.status(409).json({ error: 'Conflict: Record was updated by another user' });
+    }
     const updated = await Attendance.findByIdAndUpdate(
       req.params.id,
       { ...req.body, updatedBy: req.user.id, updatedAt: Date.now() },
       { new: true }
     );
-    if (!updated) return res.status(404).json({ error: 'Attendance not found' });
     res.status(200).json(updated);
   } catch (err) {
+    console.error('Attendance update error:', err); // Лог
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/attendance/:id', authenticate, async (req, res) => {
+  try {
+    const deleted = await Attendance.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Attendance not found' });
+    res.status(200).json({ message: 'Attendance deleted' });
+  } catch (err) {
+    console.error('Attendance delete error:', err); // Лог
     res.status(500).json({ error: err.message });
   }
 });
@@ -316,27 +375,5 @@ app.post('/api/setup/admin', async (req, res) => {
   }
 });
 
-// ✅ Обновление пользователя (head/admin)
-app.put('/api/admin/users/:id', authenticate, isHeadOrAdmin, async (req, res) => {
-  try {
-    const { login, fullName, role, password } = req.body;
-
-    const updateData = {};
-    if (login) updateData.login = login;
-    if (fullName) updateData.fullName = fullName;
-    if (role) updateData.role = role;
-    if (password) updateData.password = bcrypt.hashSync(password, 10); // если передан новый пароль — хешируем
-
-    const updatedUser = await User.findByIdAndUpdate(req.params.id, updateData, { new: true }).select('-password');
-    if (!updatedUser) return res.status(404).json({ error: 'User not found' });
-
-    res.status(200).json(updatedUser);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-

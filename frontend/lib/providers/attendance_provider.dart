@@ -1,4 +1,4 @@
-// lib/providers/attendance_provider.dart
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/attendance.dart';
 import '../models/student.dart';
@@ -21,17 +21,31 @@ class AttendanceProvider with ChangeNotifier {
     _error = null;
     notifyListeners();
 
-    final cachedAttendance = HiveService.getAttendance();
-    if (cachedAttendance != null) {
-      _attendanceList = cachedAttendance;
-      _isLoading = false;
-      notifyListeners();
-      return;
+    if (groupId == null && date == null) {
+      final cachedAttendance = HiveService.getAttendance();
+      if (cachedAttendance != null) {
+        _attendanceList = cachedAttendance;
+        _isLoading = false;
+        notifyListeners();
+        return;
+      }
     }
 
     try {
       final data = await ApiService.getAttendance(groupId: groupId, date: date);
-      _attendanceList = data.map((json) => Attendance.fromJson(json)).toList();
+      final newAttendances = data.map((json) => Attendance.fromJson(json)).toList();
+
+      if (groupId != null || date != null) {
+        _attendanceList.removeWhere((a) {
+          bool matchGroup = groupId == null || a.groupId == groupId;
+          bool matchDate = date == null || a.date.toIso8601String().split('T')[0] == date;
+          return matchGroup && matchDate;
+        });
+        _attendanceList.addAll(newAttendances);
+      } else {
+        _attendanceList = newAttendances;
+      }
+
       await HiveService.saveAttendance(_attendanceList);
       _isLoading = false;
       notifyListeners();
@@ -61,41 +75,59 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
-  Future<String?> createAttendance(Map<String, dynamic> data) async {
-    try {
-      final resp = await ApiService.createAttendance(data);
-      final newId = resp['_id'] ?? resp['id'];
-      await fetchAttendance();
-      notifyListeners();
-      return newId;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-      return null;
-    }
+Future<String?> createAttendance(Map<String, dynamic> data) async {
+  try {
+    final resp = await ApiService.createAttendance(data);
+    final newId = resp['_id'] ?? resp['id'];
+    await fetchAttendance();
+    return newId;
+  } catch (e) {
+    _error = e.toString();
+    print('Create attendance error: $_error'); // Лог для дебага
+    notifyListeners();
+    return null;
   }
+}
 
-  Future<bool> updateAttendance(String id, Map<String, dynamic> data) async {
-    try {
-      await ApiService.updateAttendance(id, data);
-      await fetchAttendance();
-      notifyListeners();
-      return true;
-    } catch (e) {
+Future<bool> updateAttendance(String id, Map<String, dynamic> data) async {
+  try {
+    await ApiService.updateAttendance(id, data);
+    await fetchAttendance();
+    return true;
+  } catch (e) {
+    if (e is DioError && e.response?.statusCode == 409) {
+      _error = 'Конфликт: запись была обновлена другим пользователем. Пожалуйста, обновите страницу.';
+    } else {
       _error = e.toString();
-      notifyListeners();
-      return false;
     }
+    print('Update attendance error: $_error'); // Лог
+    notifyListeners();
+    return false;
   }
+}
+
+Future<bool> deleteAttendance(String id) async {
+  try {
+    await ApiService.deleteAttendance(id);
+    _attendanceList.removeWhere((a) => a.id == id);
+    await HiveService.saveAttendance(_attendanceList);
+    notifyListeners();
+    return true;
+  } catch (e) {
+    _error = e.toString();
+    print('Delete attendance error: $_error'); // Лог
+    notifyListeners();
+    return false;
+  }
+}
 
   Future<Map<String, Map<String, String>>> getAttendances(String groupId, String date) async {
     await fetchAttendance(groupId: groupId, date: date);
     Map<String, Map<String, String>> attendances = {};
     for (var att in _attendanceList) {
       String attDate = att.date.toIso8601String().split('T')[0];
-      if (attDate == date && att.groupId == groupId) {
-        String status = att.status.isEmpty ? 'unmarked' : att.status;
-        attendances[att.studentId] = {'status': status, 'id': att.id};
+      if (attDate == date && att.groupId == groupId && att.status.isNotEmpty) {
+        attendances[att.studentId] = {'status': att.status, 'id': att.id};
       }
     }
     return attendances;

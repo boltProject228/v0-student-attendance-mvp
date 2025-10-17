@@ -305,102 +305,126 @@ class _GroupsTabState extends State<GroupsTab> {
     final adminProvider = Provider.of<AdminProvider>(context);
 
     return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              const Text(
-                'Группы',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
-              FilledButton.icon(
-                onPressed: () => _showAddGroupDialog(context),
-                icon: const Icon(Icons.add),
-                label: const Text('Добавить'),
-                style: FilledButton.styleFrom(backgroundColor: Colors.blue),
-              ),
-            ],
+  children: [
+    Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          const Text(
+            'Группы',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
+          const Spacer(),
+          FilledButton.icon(
+            onPressed: () => _showAddGroupDialog(context),
+            icon: const Icon(Icons.add),
+            label: const Text('Добавить'),
+            style: FilledButton.styleFrom(backgroundColor: Colors.blue),
+          ),
+        ],
+      ),
+    ),
+    if (adminProvider.error != null)
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Text(
+          adminProvider.error!,
+          style: const TextStyle(color: Colors.red),
         ),
-        if (adminProvider.error != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(adminProvider.error!, style: const TextStyle(color: Colors.red)),
-          ),
-        Expanded(
-          child: adminProvider.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : adminProvider.groups.isEmpty
-                  ? const Center(child: Text('Нет групп'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: adminProvider.groups.length,
-                      itemBuilder: (context, index) {
-                        final group = adminProvider.groups[index];
-                        final isDeleting = _deletingIds.contains(group.id);
-                        return Card(
-                          elevation: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          child: ListTile(
-                            leading: const Icon(Icons.groups, color: Colors.blue),
-                            title: Text(group.name),
-                            subtitle:
-                                Text('${group.specialty}, Курс ${group.course}'),
-                            trailing: isDeleting
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : IconButton(
-                                    icon: const Icon(Icons.delete, color: Colors.red),
-                                    onPressed: () async {
-                                      final confirmed = await showDialog<bool>(
-                                        context: context,
-                                        builder: (context) => AlertDialog(
-                                          title: const Text('Удалить группу?'),
-                                          content: Text(
-                                              'Вы уверены, что хотите удалить группу "${group.name}"? Все связанные студенты останутся без группы.'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, false),
-                                              child: const Text('Отмена'),
-                                            ),
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pop(context, true),
-                                              child: const Text('Удалить',
-                                                  style: TextStyle(color: Colors.red)),
-                                            ),
-                                          ],
+      ),
+    Expanded(
+      child: adminProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : adminProvider.groups.isEmpty
+              ? const Center(child: Text('Нет групп'))
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: adminProvider.groups.length,
+                  itemBuilder: (context, index) {
+                    final group = adminProvider.groups[index];
+                    final isDeleting = _deletingIds.contains(group.id);
+
+                    // ✅ Подсчёт количества студентов в группе
+                    final studentCount = adminProvider.students
+                        .where((student) => student.groupId == group.id)
+                        .length;
+
+                    return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      child: ListTile(
+                        leading: const Icon(Icons.groups, color: Colors.blue),
+                        title: Text(group.name),
+                        subtitle: Text(
+                          '${group.specialty}, Курс ${group.course} · количество студентов: $studentCount',
+                          style: const TextStyle(color: Colors.black87),
+                        ),
+                        trailing: isDeleting
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Удалить группу?'),
+                                      content: Text(
+                                          'Вы уверены, что хотите удалить группу "${group.name}"? Все связанные студенты останутся без группы.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('Отмена'),
                                         ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text(
+                                            'Удалить',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirmed == true) {
+                                    setState(() => _deletingIds.add(group.id));
+                                    final success = await adminProvider
+                                        .deleteGroup(group.id);
+                                    setState(
+                                        () => _deletingIds.remove(group.id));
+                                    if (success) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content:
+                                                Text('Группа удалена успешно')),
                                       );
-                                      if (confirmed == true) {
-                                        setState(() => _deletingIds.add(group.id));
-                                        final success = await adminProvider.deleteGroup(group.id);
-                                        setState(() => _deletingIds.remove(group.id));
-                                        if (success) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('Группа удалена успешно')),
-                                          );
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text(adminProvider.error ?? 'Ошибка удаления')),
-                                          );
-                                        }
-                                      }
-                                    },
-                                  ),
-                          ),
-                        );
-                      },
-                    ),
-        ),
-      ],
-    );
+                                    } else {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                            content: Text(adminProvider.error ??
+                                                'Ошибка удаления')),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                      ),
+                    );
+                  },
+                ),
+    ),
+  ],
+);
+
   }
 
   void _showAddGroupDialog(BuildContext context) {
@@ -821,6 +845,8 @@ class _UserTileState extends State<UserTile> {
   final fullNameController = TextEditingController(text: widget.fullName);
   final loginController = TextEditingController(text: widget.login);
   final passwordController = TextEditingController();
+  
+  // Преобразование отображаемой роли в формат бэкенда (admin, head, teacher)
   String role = widget.role.toLowerCase() == 'админ'
       ? 'admin'
       : widget.role.toLowerCase() == 'заведующий'
@@ -872,6 +898,15 @@ class _UserTileState extends State<UserTile> {
                 TextFormField(
                   controller: passwordController,
                   obscureText: obscurePassword,
+                  // --- ВАЛИДАТОР ПАРОЛЯ ---
+                  validator: (value) {
+                    // Проверяем длину только, если поле не пустое
+                    if (value != null && value.isNotEmpty && value.length < 6) {
+                      return 'Пароль должен быть не менее 6 символов';
+                    }
+                    return null;
+                  },
+                  // ------------------------
                   decoration: InputDecoration(
                     labelText: 'Новый пароль (опционально)',
                     suffixIcon: IconButton(
@@ -902,6 +937,7 @@ class _UserTileState extends State<UserTile> {
                   'role': role,
                 };
 
+                // Добавляем пароль только, если он был введен
                 if (passwordController.text.trim().isNotEmpty) {
                   updatedData['password'] = passwordController.text.trim();
                 }
@@ -928,5 +964,4 @@ class _UserTileState extends State<UserTile> {
       ),
     ),
   );
-  }
-}
+}}

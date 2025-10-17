@@ -140,7 +140,7 @@ class _ExportScreenState extends State<ExportScreen> {
           ),
         ],
       ),
-      drawer: const HeadHomeDrawer(),
+      drawer: drawerWidget,
       body: RefreshIndicator(
         onRefresh: _loadData,
         child: _isLoading

@@ -222,15 +222,33 @@ class ApiService {
     if (response.statusCode != 201) throw Exception('Failed to setup admin: ${response.statusCode} ${response.data['error']}');
   }
 
-    /// ✏️ Обновление пользователя (head/admin)
   static Future<Map<String, dynamic>> updateUser(String id, Map<String, dynamic> data) async {
+  try {
     final response = await _put('/admin/users/$id', data);
+    
+    // Dio бросает исключение для 4xx/5xx, поэтому, если мы здесь,
+    // это, вероятно, 200 (или другой успешный код, который мы ожидаем)
     if (response.statusCode == 200) {
       return response.data as Map<String, dynamic>;
     }
-    throw Exception('Failed to update user: ${response.statusCode} ${response.data['error']}');
+    throw Exception('Неожиданный статус: ${response.statusCode}');
+    
+  } on DioException catch (e) {
+    // Извлечение сообщения об ошибке из тела ответа бэкенда
+    final errorMsg = e.response?.data?['error'] ?? 'Неизвестная ошибка обновления пользователя.';
+    throw Exception(errorMsg);
+  } catch (e) {
+    // Обработка других ошибок (например, сетевых)
+    throw Exception('Непредвиденная ошибка: $e');
   }
+}
 
+  static Future<void> deleteAttendance(String id) async {
+  final response = await _delete('/attendance/$id');
+  if (response.statusCode != 200) {
+    throw Exception('Failed to delete attendance: ${response.statusCode} ${response.data['error']}');
+  }
+}
   // -------------------
   // Ping for testing connection
   // -------------------

@@ -154,7 +154,11 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
                             firstDate: DateTime(2000),
                             lastDate: DateTime.now(),
                           );
-                          if (picked != null) setState(() => _selectedDate = picked);
+                          if (picked != null) {
+                            setState(() => _selectedDate = picked);
+                            // Refresh stats for new date
+                            await Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance(date: dateStr);
+                          }
                         },
                       ),
                     ],
@@ -191,7 +195,6 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // 🧭 Чипы групп
                 if (groupsProvider.groups.isNotEmpty)
                   SizedBox(
                     height: 50,
@@ -235,7 +238,6 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // 📊 Грид карточек (адаптивно)
                 filteredGroups.isEmpty
                     ? const Center(
                         child: Padding(
@@ -281,13 +283,18 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
                                 absentCount: stats['absent'] ?? 0,
                                 sickCount: stats['sick'] ?? 0,
                                 ithubCount: stats['ithub'] ?? 0,
-                                onTap: () {
-                                  Navigator.push(
+                                onTap: () async {
+                                  final result = await Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => AttendanceScreen(group: group),
                                     ),
                                   );
+
+                                  if (result == true) {
+                                    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+                                    await attendanceProvider.fetchAttendance(groupId: group.id, date: dateStr); // Use selected dateStr
+                                  }
                                 },
                               );
                             },

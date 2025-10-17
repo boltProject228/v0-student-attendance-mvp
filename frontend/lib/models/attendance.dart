@@ -15,7 +15,11 @@ class Attendance {
   @HiveField(4)
   final String status;
   @HiveField(5)
-  final String updatedBy;
+  final String updatedBy; // ID пользователя
+  @HiveField(8) // Новое поле
+  final String? updatedByName; // Имя пользователя
+  @HiveField(9) // Новое поле
+  final String? updatedByRole; // Роль пользователя
   @HiveField(6)
   final DateTime createdAt;
   @HiveField(7)
@@ -28,26 +32,37 @@ class Attendance {
     required this.date,
     required this.status,
     required this.updatedBy,
+    this.updatedByName,
+    this.updatedByRole,
     required this.createdAt,
     required this.updatedAt,
   });
 
   factory Attendance.fromJson(Map<String, dynamic> json) {
+    String updatedById = '';
+    String? updatedByName;
+    String? updatedByRole;
+
+    if (json['updatedBy'] is Map<String, dynamic>) {
+      final updatedByMap = json['updatedBy'] as Map<String, dynamic>;
+      updatedById = updatedByMap['_id']?.toString() ?? updatedByMap['id']?.toString() ?? '';
+      updatedByName = updatedByMap['fullName'] as String?;
+      updatedByRole = updatedByMap['role'] as String?;
+    } else {
+      updatedById = json['updatedBy']?.toString() ?? '';
+    }
+
     return Attendance(
       id: json['_id'] ?? json['id'] ?? '',
       studentId: json['studentId'] ?? '',
       groupId: json['groupId'] ?? '',
-      date: json['date'] != null
-          ? DateTime.parse(json['date'])
-          : DateTime.now(),
+      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
       status: json['status'] ?? 'present',
-      updatedBy: json['updatedBy'] ?? '',
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'])
-          : DateTime.now(),
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : DateTime.now(),
+      updatedBy: updatedById,
+      updatedByName: updatedByName,
+      updatedByRole: updatedByRole,
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
     );
   }
 
@@ -76,6 +91,8 @@ class Attendance {
       date: date,
       status: status ?? this.status,
       updatedBy: updatedBy ?? this.updatedBy,
+      updatedByName: updatedByName,
+      updatedByRole: updatedByRole,
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
