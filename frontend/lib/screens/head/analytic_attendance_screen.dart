@@ -1,10 +1,11 @@
 import 'package:attendance_system/models/group.dart';
 import 'package:attendance_system/providers/attendance_provider.dart';
-import 'package:attendance_system/widgets/attendance_tile.dart';
-import 'package:attendance_system/widgets/summary_bar.dart';
+import 'package:attendance_system/providers/analytics_provider.dart';
+import 'package:attendance_system/widgets/analytic_summary_bar.dart';
+import 'package:attendance_system/widgets/analytics_attendance_tile.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-
 
 class AnalyticAttendanceScreen extends StatefulWidget {
   final Group group;
@@ -16,66 +17,37 @@ class AnalyticAttendanceScreen extends StatefulWidget {
 }
 
 class _AnalyticAttendanceScreenState extends State<AnalyticAttendanceScreen> {
-  final Map<String, String> _statuses = {};
-  final Map<String, String> _attIds = {};
+  String _selectedPeriod = 'day';
+  DateTime _startDate = DateTime.now().subtract(Duration(days: 7));
+  DateTime _endDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     final provider = Provider.of<AttendanceProvider>(context, listen: false);
     provider.fetchStudents();
-    _loadExistingAttendances();
+    _loadAnalytics();
   }
 
-  Future<void> _loadExistingAttendances() async {
-    final provider = Provider.of<AttendanceProvider>(context, listen: false);
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final attendances = await provider.getAttendances(widget.group.id, today);
-    setState(() {
-      for (var entry in attendances.entries) {
-        _statuses[entry.key] = entry.value['status']!;
-        _attIds[entry.key] = entry.value['id']!;
-      }
-    });
-  }
-
-  Map<String, int> get _summary {
-    final stats = {
-      'present': 0,
-      'absent': 0,
-      'sick': 0,
-      'ithub': 0,
-      'unmarked': 0,
-    };
-
-    final provider = Provider.of<AttendanceProvider>(context, listen: false);
-    final students = provider.students
-        .where((s) => s.groupId == widget.group.id)
-        .toList();
-
-    for (final student in students) {
-      final s = _statuses[student.id] ?? 'unmarked';
-      if (s == 'unmarked' || s.isEmpty) {
-        stats['unmarked'] = (stats['unmarked'] ?? 0) + 1;
-      } else {
-        stats[s] = (stats[s] ?? 0) + 1;
-      }
-    }
-
-    return stats;
+  Future<void> _loadAnalytics() async {
+    final analyticsProvider = Provider.of<AnalyticsProvider>(context, listen: false);
+    final startDateStr = DateFormat('yyyy-MM-dd').format(_startDate);
+    final endDateStr = DateFormat('yyyy-MM-dd').format(_endDate);
+    await analyticsProvider.fetchGroupAnalytics(
+      groupId: widget.group.id,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      period: _selectedPeriod,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<AttendanceProvider>(context);
-
-    // Получаем список студентов этой группы
-    final students = provider.students
-        .where((s) => s.groupId == widget.group.id)
-        .toList();
-
-    // Считаем общее количество студентов
+    final attendanceProvider = Provider.of<AttendanceProvider>(context);
+    final analyticsProvider = Provider.of<AnalyticsProvider>(context);
+    final students = attendanceProvider.students.where((s) => s.groupId == widget.group.id).toList();
     final studentCount = students.length;
+    final groupAnalytics = analyticsProvider.groupAnalytics;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
@@ -105,7 +77,7 @@ class _AnalyticAttendanceScreenState extends State<AnalyticAttendanceScreen> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Всего в группе: $studentCount', // ✅ теперь работает
+                  'Всего в группе: $studentCount',
                   style: const TextStyle(
                     color: Colors.black54,
                     fontWeight: FontWeight.w500,
@@ -118,76 +90,117 @@ class _AnalyticAttendanceScreenState extends State<AnalyticAttendanceScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: ListView.builder(
-  itemCount: students.length,
-  itemBuilder: (context, index) {
-    final student = students[index];
-    final status = _statuses[student.id] ?? 'unmarked';
-    return AttendanceTile(
-      index: index + 1, // 👈 добавили нумерацию
-      name: student.fullName,
-      status: status,
-      onStatusChange: (newStatus) {
-        setState(() => _statuses[student.id] = newStatus);
-      },
-    );
-  },
-),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButton<String>(
+                    value: _selectedPeriod,
+                    items: [
+                      DropdownMenuItem(value: 'day', child: Text('По дням')),
+                      DropdownMenuItem(value: 'week', child: Text('По неделям')),
+                      DropdownMenuItem(value: 'month', child: const Text('По месяцам')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _selectedPeriod = value);
+                        _loadAnalytics();
+                      }
+                    },
+                  ),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.calendar_today, size: 20),
+                  label: Text(
+                    '${DateFormat('dd.MM.yyyy').format(_startDate)} - ${DateFormat('dd.MM.yyyy').format(_endDate)}',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    final pickedRange = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+                    );
+                    if (pickedRange != null) {
+                      setState(() {
+                        _startDate = pickedRange.start;
+                        _endDate = pickedRange.end;
+                      });
+                      _loadAnalytics();
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (analyticsProvider.isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (analyticsProvider.error != null)
+              Center(child: Text('Ошибка: ${analyticsProvider.error}'))
+            else if (groupAnalytics != null) ...[
+              Text(
+                'Посещаемость группы: ${groupAnalytics['groupPercentage']}%',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: double.parse(groupAnalytics['groupPercentage']) > 80
+                      ? Colors.green
+                      : double.parse(groupAnalytics['groupPercentage']) >= 50
+                          ? Colors.orange
+                          : Colors.red,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: students.length,
+                  itemBuilder: (context, index) {
+                    final student = students[index];
+                    final studentAnalytics = groupAnalytics['students'].firstWhere(
+                      (s) => s['studentId'] == student.id,
+                      orElse: () => {
+                        'studentId': student.id,
+                        'fullName': student.fullName,
+                        'attendancePercentage': '0',
+                        'periods': []
+                      },
+                    );
+                    final today = DateTime.now().toIso8601String().split('T')[0];
+                    final status = attendanceProvider.getStudentAttendance(student.id, today).status;
 
-      ),
-      bottomNavigationBar: SummaryBar(
-        present: _summary['present'] ?? 0,
-        absent: _summary['absent'] ?? 0,
-        sick: _summary['sick'] ?? 0,
-        ithub: _summary['ithub'] ?? 0,
-        unmarked: _summary['unmarked'] ?? 0,
-        onSave: _saveAttendance,
-      ),
-    );
-  }
-
-  Future<void> _saveAttendance() async {
-    final provider = Provider.of<AttendanceProvider>(context, listen: false);
-    final nowIso = DateTime.now().toIso8601String();
-
-    for (var entry in _statuses.entries) {
-      String studentId = entry.key;
-      String status = entry.value;
-      var data = {
-        'studentId': studentId,
-        'groupId': widget.group.id,
-        'date': nowIso,
-        'updatedBy': '1', // Mock user
-      };
-      String? attId = _attIds[studentId];
-
-      if (status == 'unmarked') {
-        if (attId != null) {
-          data['status'] = '';
-          await provider.updateAttendance(attId, data);
-        }
-      } else {
-        data['status'] = status;
-        if (attId != null) {
-          await provider.updateAttendance(attId, data);
-        } else {
-          String? newId = await provider.createAttendance(data);
-          if (newId != null) {
-            setState(() {
-              _attIds[studentId] = newId;
-            });
-          }
-        }
-      }
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Посещаемость сохранена ✅'),
-          backgroundColor: Colors.green,
+                    return AnalyticsAttendanceTile(
+                      index: index + 1,
+                      name: student.fullName,
+                      status: status,
+                      attendancePercentage: double.parse(studentAnalytics['attendancePercentage']),
+                      statusSequence: studentAnalytics['periods'].isNotEmpty
+                          ? studentAnalytics['periods'][0]['statuses']
+                          : [],
+                      onStatusChange: null, // Read-only
+                    );
+                  },
+                ),
+              ),
+              AnalyticSummaryBar(
+                present: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('present') ? 1 : 0)),
+                absent: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('absent') ? 1 : 0)),
+                sick: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('sick') ? 1 : 0)),
+                ithub: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('ithub') ? 1 : 0)),
+                unmarked: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('unmarked') ? 1 : 0))    
+                ,
+                onSave: null,
+              ),
+            ],
+          ],
         ),
-      );
-    }
+      ),
+    );
   }
 }

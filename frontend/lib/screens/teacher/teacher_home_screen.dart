@@ -24,7 +24,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   String _searchQuery = '';
   String _selectedSpecialty = 'Все';
   String _selectedCourse = 'Все';
-  DateTime _selectedDate = DateTime.now();
+  // ❌ УДАЛЕНО: DateTime _selectedDate = DateTime.now();
   String? _selectedGroupId;
 
   final List<String> _specialties = [
@@ -47,10 +47,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       if (!isAuth) {
         Navigator.pushReplacementNamed(context, '/login');
       } else {
+        // Загрузка всех необходимых данных
         Provider.of<GroupsProvider>(context, listen: false).fetchGroups();
         Provider.of<AttendanceProvider>(context, listen: false).fetchStudents();
-        Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance();
-        // Debug: Print any existing error in AttendanceProvider
+        Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance(); // Загружает данные на "сегодня" по умолчанию
+        
         final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
         if (attendanceProvider.error != null) {
           print('AttendanceProvider error in initState: ${attendanceProvider.error}');
@@ -104,7 +105,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
 
     final filteredGroups = _filteredGroups(groupsProvider.groups, attendanceProvider.students);
-    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    // ✅ ИСПОЛЬЗУЕМ ТЕКУЩУЮ ДАТУ, Т.К. ПОЛЬЗОВАТЕЛЬ НЕ МОЖЕТ ЕЕ ВЫБРАТЬ
+    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now()); 
     final mockGroups = MockData.mockGetGroups();
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -141,29 +143,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                         }),
                         onCourseChanged: (value) => setState(() => _selectedCourse = value),
                       ),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.calendar_today, size: 20),
-                        label: Text(DateFormat('dd.MM.yyyy').format(_selectedDate)),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          backgroundColor: Colors.blue.shade600,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedDate,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null) {
-                            setState(() => _selectedDate = picked);
-                            // Refresh stats for new date
-                            await Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance(date: dateStr);
-                          }
-                        },
-                      ),
+                      // ❌ УДАЛЕНО: ElevatedButton.icon для выбора даты
                     ],
                   )
                 else
@@ -185,6 +165,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                           onCourseChanged: (value) => setState(() => _selectedCourse = value),
                         ),
                       ),
+                      // ❌ УДАЛЕНО: Секция для выбора даты в десктопном режиме
                     ],
                   ),
                 const SizedBox(height: 24),
@@ -272,7 +253,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                             itemBuilder: (context, index) {
                               final group = filteredGroups[index];
                               final studentCount = attendanceProvider.getGroupStudentCount(group.id);
-                              final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
+                              
+                              // ✅ Используем текущую дату (dateStr) для получения статистики
+                              final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr); 
 
                               return GroupCard(
                                 group: group,
@@ -292,7 +275,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
                                   if (result == true) {
                                     final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-                                    await attendanceProvider.fetchAttendance(groupId: group.id, date: dateStr); // Use selected dateStr
+                                    // ✅ Обновление статистики для текущей группы и ТЕКУЩЕЙ даты после возвращения
+                                    await attendanceProvider.fetchAttendance(groupId: group.id, date: dateStr); 
                                   }
                                 },
                               );

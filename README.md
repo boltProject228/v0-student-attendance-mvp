@@ -192,7 +192,6 @@ static const String baseUrl = 'http://your-api-url/api';
 - **Flutter** - UI фреймворк
 - **Provider** - State management
 - **HTTP** - API клиент
-- **SharedPreferences** - Локальное хранилище
 - **Material Design 3** - Дизайн система
 =======
 Результат будет в папке:

@@ -9,6 +9,7 @@ class AnalyticGroupCard extends StatelessWidget {
   final int sickCount;
   final int ithubCount;
   final int markedCount;
+  final double? attendancePercentage; // Nullable
   final VoidCallback onTap;
 
   const AnalyticGroupCard({
@@ -20,6 +21,7 @@ class AnalyticGroupCard extends StatelessWidget {
     required this.sickCount,
     required this.ithubCount,
     required this.markedCount,
+    this.attendancePercentage, // Nullable
     required this.onTap,
   });
 
@@ -73,7 +75,7 @@ class AnalyticGroupCard extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Flexible(
+                        Expanded( // 💡 ИСПРАВЛЕНО: Заменен Flexible на Expanded для избежания RenderFlex overflow
                           child: Text(
                             'Группа ${group.name}',
                             style: TextStyle(
@@ -101,7 +103,6 @@ class AnalyticGroupCard extends StatelessWidget {
                       ],
                     ),
                   ),
-
                   // 📊 Статистика
                   Expanded(
                     child: Padding(
@@ -163,7 +164,7 @@ class AnalyticGroupCard extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: labelFontSize,
-            fontWeight: FontWeight.w600, // 👈 стал чуть жирнее
+            fontWeight: FontWeight.w600,
             color: Colors.grey.shade600,
             overflow: TextOverflow.ellipsis,
           ),

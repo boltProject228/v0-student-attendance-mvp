@@ -227,38 +227,38 @@ app.delete('/api/admin/students/:id', authenticate, isHeadOrAdmin, async (req, r
 
  // 🚀 НОВЫЙ МАРШРУТ: PUT (Обновление пользователя)
 app.put('/api/admin/users/:id', authenticate, isHeadOrAdmin, async (req, res) => {
-  try {
-    const { fullName, login, role, password } = req.body;
-    const updateData = { fullName, login, role };
-    
-    // Если в теле запроса передан новый пароль, его нужно хешировать
-    if (password) {
-      updateData.password = bcrypt.hashSync(password, 10);
-    }
+  try {
+    const { fullName, login, role, password } = req.body;
+    const updateData = { fullName, login, role };
+    
+    // Если в теле запроса передан новый пароль, его нужно хешировать
+    if (password) {
+      updateData.password = bcrypt.hashSync(password, 10);
+    }
 
-    const updated = await User.findByIdAndUpdate(
-      req.params.id, 
-      updateData, 
-      { new: true, runValidators: true } // `new: true` возвращает обновленный документ; `runValidators: true` проверяет схему
-    );
+    const updated = await User.findByIdAndUpdate(
+      req.params.id, 
+      updateData, 
+      { new: true, runValidators: true } // `new: true` возвращает обновленный документ; `runValidators: true` проверяет схему
+    );
 
-    if (!updated) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Возвращаем обновленного пользователя, исключая пароль
-    const userResponse = updated.toObject();
-    delete userResponse.password;
+    if (!updated) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Возвращаем обновленного пользователя, исключая пароль
+    const userResponse = updated.toObject();
+    delete userResponse.password;
 
-    res.status(200).json(userResponse);
-  } catch (err) {
-    console.error('User update error:', err);
-    // Обработка ошибки уникальности (например, если логин уже занят)
-    if (err.code === 11000) {
-      return res.status(400).json({ error: 'Login is already taken' });
-    }
-    res.status(500).json({ error: err.message });
-  }
+    res.status(200).json(userResponse);
+  } catch (err) {
+    console.error('User update error:', err);
+    // Обработка ошибки уникальности (например, если логин уже занят)
+    if (err.code === 11000) {
+      return res.status(400).json({ error: 'Login is already taken' });
+    }
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Attendance CRUD
@@ -348,6 +348,132 @@ app.get('/api/analytics', authenticate, isHeadOrAdmin, async (req, res) => {
     };
     res.status(200).json(stats);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ... (остальной код без изменений)
+
+app.get('/api/analytics/group/:groupId', authenticate, isHeadOrAdmin, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { startDate, endDate, period = 'day' } = req.query;
+
+    if (!mongoose.Types.ObjectId.isValid(groupId)) {
+      return res.status(400).json({ error: 'Invalid group ID' });
+    }
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate are required' });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setDate(end.getDate() + 1); // Include endDate
+
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    // Validate group
+    const group = await Group.findById(groupId);
+    if (!group) return res.status(404).json({ error: 'Group not found' });
+
+    // Get students in group
+    const students = await Student.find({ groupId });
+    const studentIds = students.map(s => s._id);
+
+    // Aggregate attendance
+    const matchStage = {
+      groupId: new mongoose.Types.ObjectId(groupId),
+      date: { $gte: start, $lt: end },
+      status: { $in: ['present', 'absent', 'sick', 'ithub'] }, // Exclude unmarked
+    };
+
+    const groupBy = period === 'day' ? {
+      $dateToString: { format: '%Y-%m-%d', date: '$date' }
+    } : period === 'week' ? {
+      $concat: [
+        { $dateToString: { format: '%Y', date: '$date' } },
+        '-W',
+        { $toString: { $isoWeek: '$date' } }
+      ]
+    } : {
+      $dateToString: { format: '%Y-%m', date: '$date' }
+    };
+
+    const aggregation = await Attendance.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: {
+            studentId: '$studentId',
+            period: groupBy
+          },
+          statuses: { $push: '$status' },
+          presentCount: {
+            $sum: { $cond: [{ $in: ['$status', ['present', 'ithub']] }, 1, 0] }
+          },
+          totalCount: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: '$_id.studentId',
+          periods: {
+            $push: {
+              period: '$_id.period',
+              presentCount: '$presentCount',
+              totalCount: '$totalCount',
+              statuses: '$statuses'
+            }
+          },
+          totalPresent: { $sum: '$presentCount' },
+          totalDays: { $sum: '$totalCount' }
+        }
+      },
+      {
+        $project: {
+          studentId: '$_id',
+          attendancePercentage: {
+            $cond: [
+              { $eq: ['$totalDays', 0] },
+              0,
+              { $multiply: [{ $divide: ['$totalPresent', '$totalDays'] }, 100] }
+            ]
+          },
+          periods: 1,
+          totalPresent: 1,
+          totalDays: 1
+        }
+      }
+    ]);
+
+    // Group stats
+    const totalPresent = aggregation.reduce((sum, s) => sum + s.totalPresent, 0);
+    const totalDays = aggregation.reduce((sum, s) => sum + s.totalDays, 0);
+    const groupPercentage = totalDays > 0 ? (totalPresent / totalDays) * 100 : 0;
+
+    // Map student data
+    const studentStats = aggregation.map(s => ({
+      studentId: s.studentId.toString(),
+      fullName: students.find(st => st._id.toString() === s.studentId.toString())?.fullName || 'Unknown',
+      attendancePercentage: s.attendancePercentage.toFixed(2),
+      periods: s.periods.map(p => ({
+        period: p.period,
+        percentage: p.totalCount > 0 ? ((p.presentCount / p.totalCount) * 100).toFixed(2) : 0,
+        statuses: p.statuses
+      }))
+    }));
+
+    res.status(200).json({
+      groupId,
+      groupName: group.name,
+      groupPercentage: groupPercentage.toFixed(2),
+      students: studentStats
+    });
+  } catch (err) {
+    console.error('Analytics error:', err);
     res.status(500).json({ error: err.message });
   }
 });

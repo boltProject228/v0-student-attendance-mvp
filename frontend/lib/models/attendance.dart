@@ -15,11 +15,11 @@ class Attendance {
   @HiveField(4)
   final String status;
   @HiveField(5)
-  final String updatedBy; // ID пользователя
-  @HiveField(8) // Новое поле
-  final String? updatedByName; // Имя пользователя
-  @HiveField(9) // Новое поле
-  final String? updatedByRole; // Роль пользователя
+  final String updatedBy;
+  @HiveField(8)
+  final String? updatedByName;
+  @HiveField(9)
+  final String? updatedByRole;
   @HiveField(6)
   final DateTime createdAt;
   @HiveField(7)
@@ -57,7 +57,7 @@ class Attendance {
       studentId: json['studentId'] ?? '',
       groupId: json['groupId'] ?? '',
       date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
-      status: json['status'] ?? 'present',
+      status: json['status'] ?? 'unmarked',
       updatedBy: updatedById,
       updatedByName: updatedByName,
       updatedByRole: updatedByRole,
@@ -102,4 +102,5 @@ class Attendance {
   bool get isAbsent => status == 'absent';
   bool get isSick => status == 'sick';
   bool get isIThub => status == 'ithub';
+  bool get isAttended => isPresent || isIThub; // New getter for analytics
 }

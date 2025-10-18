@@ -264,4 +264,29 @@ class HiveService {
       return null;
     }
   }
+
+  // Generic save
+  static Future<void> saveGeneric(String key, dynamic value, Duration expiration) async {
+    await _ensureBoxInitialized();
+    try {
+      await _box!.put(key, value);
+      await _box!.put('${key}_lastUpdate', DateTime.now().add(expiration).toIso8601String());
+    } catch (e) {
+      print('HiveService.saveGeneric error: $e');
+    }
+  }
+
+  // Generic get
+  static T? getGeneric<T>(String key) {
+    if (_box == null || !_box!.isOpen) return null;
+    final expirationStr = _box!.get('${key}_lastUpdate') as String?;
+    if (expirationStr == null) return null;
+    final expiration = DateTime.tryParse(expirationStr);
+    if (expiration == null || DateTime.now().isAfter(expiration)) {
+      _box!.delete(key);
+      _box!.delete('${key}_lastUpdate');
+      return null;
+    }
+    return _box!.get(key) as T?;
+  }
 }

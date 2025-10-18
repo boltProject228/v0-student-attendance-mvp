@@ -26,7 +26,7 @@ class AttendanceProvider with ChangeNotifier {
       if (cachedAttendance != null) {
         _attendanceList = cachedAttendance;
         _isLoading = false;
-        notifyListeners();
+        // notifyListeners(); // ⚠️ Не вызываем здесь, чтобы избежать конфликта, если вызвано в build/init
         return;
       }
     }
@@ -60,7 +60,7 @@ class AttendanceProvider with ChangeNotifier {
     final cachedStudents = HiveService.getStudents();
     if (cachedStudents != null) {
       _students = cachedStudents;
-      notifyListeners();
+      // notifyListeners(); // ❌ ИСПРАВЛЕНО: Удален синхронный notifyListeners при наличии кеша
       return;
     }
 
@@ -75,51 +75,51 @@ class AttendanceProvider with ChangeNotifier {
     }
   }
 
-Future<String?> createAttendance(Map<String, dynamic> data) async {
-  try {
-    final resp = await ApiService.createAttendance(data);
-    final newId = resp['_id'] ?? resp['id'];
-    await fetchAttendance();
-    return newId;
-  } catch (e) {
-    _error = e.toString();
-    print('Create attendance error: $_error'); // Лог для дебага
-    notifyListeners();
-    return null;
-  }
-}
-
-Future<bool> updateAttendance(String id, Map<String, dynamic> data) async {
-  try {
-    await ApiService.updateAttendance(id, data);
-    await fetchAttendance();
-    return true;
-  } catch (e) {
-    if (e is DioError && e.response?.statusCode == 409) {
-      _error = 'Конфликт: запись была обновлена другим пользователем. Пожалуйста, обновите страницу.';
-    } else {
+  Future<String?> createAttendance(Map<String, dynamic> data) async {
+    try {
+      final resp = await ApiService.createAttendance(data);
+      final newId = resp['_id'] ?? resp['id'];
+      await fetchAttendance();
+      return newId;
+    } catch (e) {
       _error = e.toString();
+      print('Create attendance error: $_error'); // Лог для дебага
+      notifyListeners();
+      return null;
     }
-    print('Update attendance error: $_error'); // Лог
-    notifyListeners();
-    return false;
   }
-}
 
-Future<bool> deleteAttendance(String id) async {
-  try {
-    await ApiService.deleteAttendance(id);
-    _attendanceList.removeWhere((a) => a.id == id);
-    await HiveService.saveAttendance(_attendanceList);
-    notifyListeners();
-    return true;
-  } catch (e) {
-    _error = e.toString();
-    print('Delete attendance error: $_error'); // Лог
-    notifyListeners();
-    return false;
+  Future<bool> updateAttendance(String id, Map<String, dynamic> data) async {
+    try {
+      await ApiService.updateAttendance(id, data);
+      await fetchAttendance();
+      return true;
+    } catch (e) {
+      if (e is DioException && e.response?.statusCode == 409) {
+        _error = 'Конфликт: запись была обновлена другим пользователем. Пожалуйста, обновите страницу.';
+      } else {
+        _error = e.toString();
+      }
+      print('Update attendance error: $_error'); // Лог
+      notifyListeners();
+      return false;
+    }
   }
-}
+
+  Future<bool> deleteAttendance(String id) async {
+    try {
+      await ApiService.deleteAttendance(id);
+      _attendanceList.removeWhere((a) => a.id == id);
+      await HiveService.saveAttendance(_attendanceList);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      print('Delete attendance error: $_error'); // Лог
+      notifyListeners();
+      return false;
+    }
+  }
 
   Future<Map<String, Map<String, String>>> getAttendances(String groupId, String date) async {
     await fetchAttendance(groupId: groupId, date: date);

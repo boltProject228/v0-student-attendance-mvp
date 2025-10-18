@@ -1,5 +1,6 @@
 // main.dart
 import 'package:attendance_system/providers/admin_provider.dart';
+import 'package:attendance_system/providers/analytics_provider.dart';
 import 'package:attendance_system/screens/admin/admin_screen.dart'; // Добавьте импорт AdminScreen
 import 'package:attendance_system/screens/head/export_screen.dart';
 import 'package:flutter/material.dart';
@@ -41,6 +42,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AttendanceProvider()),
         ChangeNotifierProvider(create: (_) => GroupsProvider()),
         ChangeNotifierProvider(create: (_) => AdminProvider()),
+        ChangeNotifierProvider(create: (_) => AnalyticsProvider()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
