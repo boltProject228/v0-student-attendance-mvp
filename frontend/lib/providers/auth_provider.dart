@@ -1,6 +1,4 @@
-// lib/providers/auth_provider.dart
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
@@ -38,15 +36,16 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
 
+      String homeRoute;
       switch (user.role) {
         case 'teacher':
-          Navigator.pushReplacementNamed(context, '/teacher_home');
-          break;
-        case 'admin':
-          Navigator.pushReplacementNamed(context, '/admin');
+          homeRoute = '/teacher_home';
           break;
         case 'head':
-          Navigator.pushReplacementNamed(context, '/head_home');
+          homeRoute = '/head_home';
+          break;
+        case 'admin':
+          homeRoute = '/admin';
           break;
         default:
           _error = 'Неизвестная роль пользователя: ${user.role}';
@@ -54,7 +53,10 @@ class AuthProvider with ChangeNotifier {
           return false;
       }
 
+      // 🚀 Исправлено — очистка стека и обновление URL
+      Navigator.of(context).pushNamedAndRemoveUntil(homeRoute, (route) => false);
       return true;
+
     } catch (e) {
       _error = e.toString();
       _isLoading = false;
@@ -64,7 +66,7 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout(BuildContext context) async {
     try {
       await ApiService.logout();
     } catch (e) {
@@ -73,6 +75,9 @@ class AuthProvider with ChangeNotifier {
     await HiveService.clearAll();
     _user = null;
     notifyListeners();
+
+    // Возвращаем на экран логина и чистим стек
+    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
   }
 
   Future<bool> checkAuth() async {
@@ -98,5 +103,4 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
-
 }

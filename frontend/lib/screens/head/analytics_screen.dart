@@ -2,9 +2,9 @@ import 'package:attendance_system/models/student.dart';
 import 'package:attendance_system/providers/auth_provider.dart';
 import 'package:attendance_system/screens/head/analytic_attendance_screen.dart';
 import 'package:attendance_system/widgets/admin/admin_home_drawer.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -13,6 +13,14 @@ import '../../providers/groups_provider.dart';
 import '../../widgets/head/head_home_drawer.dart';
 import '../../models/group.dart';
 import '../../widgets/analytic_group_card.dart';
+
+class AcademicRange {
+  final String label;
+  final DateTime startDate;
+  final DateTime? endDate;
+
+  AcademicRange({required this.label, required this.startDate, this.endDate});
+}
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -60,9 +68,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
   final List<String> _courses = ['Все', '1', '2', '3', '4'];
 
+  // Конфигурируемые даты семестров
+  static const int semester1StartMonth = 9;  // Сентябрь
+  static const int semester1StartDay = 2;    // 2 сентября
+  static const int semester1EndMonth = 1;    // Январь
+  static const int semester1EndDay = 15;     // 15 января (изменить по необходимости)
+
+  static const int semester2StartMonth = 2;  // Февраль
+  static const int semester2StartDay = 1;    // 1 февраля
+  static const int semester2EndMonth = 6;    // Июнь
+  static const int semester2EndDay = 30;     // 30 июня (изменить по необходимости)
+
   @override
   void initState() {
     super.initState();
+    initializeDateFormatting('ru_RU');
     _startDate = DateTime.now();
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -308,6 +328,134 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     return Colors.red;
   }
 
+// ... внутри class _AnalyticsScreenState extends State<AnalyticsScreen> ...
+
+List<AcademicRange> _generateFixedRanges() {
+    final now = DateTime.now();
+    List<AcademicRange> ranges = [];
+
+    // 1. Сегодня
+    ranges.add(AcademicRange(label: 'Сегодня', startDate: now.copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0)));
+
+    // Определяем текущий академический год
+    int acYearStart = now.month >= semester1StartMonth ? now.year : now.year - 1;
+    int acYearEnd = acYearStart + 1;
+
+    // --- I СЕМЕСТР (STATIC) ---
+    DateTime iStart = DateTime(acYearStart, semester1StartMonth, semester1StartDay);
+    DateTime iEnd = DateTime(acYearEnd, semester1EndMonth, semester1EndDay);
+    String iLabel = 'I семестр ($acYearStart/$acYearEnd)';
+    
+    // Добавляем заголовок I Семестра
+    ranges.add(AcademicRange(label: iLabel, startDate: iStart, endDate: iEnd));
+
+    // Месяцы I Семестра (Сентябрь – Январь)
+    DateTime month = DateTime(acYearStart, 9, 1);
+    
+    while (month.isBefore(iEnd.add(const Duration(days: 1)))) {
+        DateTime startOfMonth = month;
+        DateTime endOfMonth = DateTime(startOfMonth.year, startOfMonth.month + 1, 0); 
+        
+        DateTime finalEndDate = endOfMonth.isAfter(iEnd) ? iEnd : endOfMonth;
+
+        // ИСПРАВЛЕНИЕ: Используем 'LLLL' для Именительного падежа,
+        // и не используем replaceFirstMapped, потому что 'LLLL' уже делает первую букву заглавной.
+        String monthLabel = DateFormat('LLLL yyyy', 'ru_RU').format(startOfMonth);
+        
+        ranges.add(AcademicRange(label: monthLabel, startDate: startOfMonth, endDate: finalEndDate));
+        
+        month = _addMonth(month);
+        
+        if (month.isAfter(iEnd)) break;
+    }
+
+    // --- II СЕМЕСТР (STATIC) ---
+    DateTime iiStart = DateTime(acYearEnd, semester2StartMonth, semester2StartDay);
+    DateTime iiEnd = DateTime(acYearEnd, semester2EndMonth, semester2EndDay);
+    String iiLabel = 'II семестр ($acYearStart/$acYearEnd)';
+
+    // Добавляем заголовок II Семестра
+    ranges.add(AcademicRange(label: iiLabel, startDate: iiStart, endDate: iiEnd));
+
+    // Месяцы II Семестра (Февраль – Июнь)
+    DateTime monthII = DateTime(acYearEnd, semester2StartMonth, 1);
+    
+    while (monthII.isBefore(iiEnd.add(const Duration(days: 1)))) {
+        DateTime startOfMonth = monthII;
+        DateTime endOfMonth = DateTime(startOfMonth.year, startOfMonth.month + 1, 0); 
+        
+        DateTime finalEndDate = endOfMonth.isAfter(iiEnd) ? iiEnd : endOfMonth;
+
+        // ИСПРАВЛЕНИЕ: Используем 'LLLL'
+        String monthLabel = DateFormat('LLLL yyyy', 'ru_RU').format(startOfMonth);
+        ranges.add(AcademicRange(label: monthLabel, startDate: startOfMonth, endDate: finalEndDate));
+        
+        monthII = _addMonth(monthII);
+        
+        if (monthII.isAfter(iiEnd)) break;
+    }
+    
+    return ranges;
+}
+
+  DateTime _addMonth(DateTime date) {
+    int nextMonth = date.month + 1;
+    int nextYear = date.year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    return DateTime(nextYear, nextMonth, 1);
+  }
+
+  // Единый метод для установки диапазона (заменяет старую логику)
+  Future<void> _setFilterRange({
+    AcademicRange? fixedRange,
+    DateTime? manualStart,
+    DateTime? manualEnd,
+  }) async {
+    DateTime newStartDate;
+    DateTime? newEndDate;
+    bool newIsRange = false;
+
+    if (fixedRange != null) {
+      newStartDate = fixedRange.startDate;
+      newEndDate = fixedRange.endDate;
+      // Если endDate есть, это диапазон
+      newIsRange = fixedRange.endDate != null;
+    } else if (manualStart != null) {
+      // Ручной выбор
+      newStartDate = manualStart;
+      newEndDate = manualEnd;
+      // Если есть конечная дата, это диапазон
+      newIsRange = manualEnd != null;
+    } else {
+      // По умолчанию - Сегодня
+      newStartDate = DateTime.now();
+      newEndDate = null;
+      newIsRange = false;
+    }
+
+    setState(() {
+      _startDate = newStartDate;
+      _endDate = newEndDate;
+      _isRange = newIsRange;
+    });
+
+    // Всегда вызываем загрузку данных после изменения диапазона
+    _loadAnalytics();
+
+
+  }
+
+      // Метод-хелпер для поиска первого элемента или возврата null (заменяет функциональность .firstWhereOrNull)
+T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T element) test) {
+  for (var element in items) {
+    if (test(element)) return element;
+  }
+  return null;
+}
+
   @override
   Widget build(BuildContext context) {
     final attendanceProvider = Provider.of<AttendanceProvider>(context);
@@ -325,6 +473,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     } else if (authProvider.isAdmin) {
       drawerWidget = const AdminHomeDrawer();
     }
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
 
     return Scaffold(
       appBar: AppBar(
@@ -347,77 +498,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                 ? _buildErrorState()
                 : Column(
                     children: [
-                      _buildDateFilter(),
-                      const SizedBox(height: 24),
-                      ExpansionTile(
-                        leading: const Icon(Icons.pie_chart),
-                        title: const Text('Средняя посещаемость', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        initiallyExpanded: false,
-                        childrenPadding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        children: [
-                          const SizedBox(height: 16),
-                          Card(
-                            elevation: 4,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: SizedBox(
-                                height: 250,
-                                child: Stack(
-                                  children: [
-                                    PieChart(
-                                      PieChartData(
-                                        sections: [
-                                          PieChartSectionData(color: Colors.green, value: double.parse(_analyticsData!['averagePresent']), title: ''),
-                                          PieChartSectionData(color: Colors.red, value: double.parse(_analyticsData!['averageAbsent']), title: ''),
-                                          PieChartSectionData(color: Colors.orange, value: double.parse(_analyticsData!['averageSick']), title: ''),
-                                          PieChartSectionData(color: Colors.purple, value: double.parse(_analyticsData!['averageIThub']), title: ''),
-                                        ],
-                                        centerSpaceRadius: 40,
-                                        sectionsSpace: 2,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      bottom: 16,
-                                      left: 16,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          _buildLegendItem(
-                                            'Присутствовали', 
-                                            Colors.green, 
-                                            _analyticsData!['averagePresent'],
-                                            _analyticsData!['countPresent'],
-                                          ),
-                                          _buildLegendItem(
-                                            'Отсутствовали', 
-                                            Colors.red, 
-                                            _analyticsData!['averageAbsent'],
-                                            _analyticsData!['countAbsent'],
-                                          ),
-                                          _buildLegendItem(
-                                            'Больничные', 
-                                            Colors.orange, 
-                                            _analyticsData!['averageSick'],
-                                            _analyticsData!['countSick'],
-                                          ),
-                                          _buildLegendItem(
-                                            'IT-hub', 
-                                            Colors.purple, 
-                                            _analyticsData!['averageIThub'],
-                                            _analyticsData!['countIThub'],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
+                      _buildDateFilter(isMobile),
+                      SizedBox(height: isMobile ? 12 : 24),
                       TabBar(
                         controller: _tabController,
                         labelStyle: const TextStyle(fontWeight: FontWeight.bold),
@@ -431,10 +513,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                           controller: _tabController,
                           children: [
                             ListView(
-                              padding: const EdgeInsets.all(16.0),
+                              padding: EdgeInsets.all(isMobile ? 8.0 : 16.0),
                               children: [
-                                _buildGroupFilters(),
-                                const SizedBox(height: 16),
+                                _buildGroupFilters(isMobile),
+                                SizedBox(height: isMobile ? 8 : 16),
                                 LayoutBuilder(
                                   builder: (context, constraints) {
                                     final width = constraints.maxWidth;
@@ -449,30 +531,40 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                                     return GridView.builder(
                                       shrinkWrap: true,
                                       physics: const NeverScrollableScrollPhysics(),
-                                      padding: const EdgeInsets.only(bottom: 20),
+                                      padding: EdgeInsets.only(bottom: isMobile ? 10 : 20),
                                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount: crossAxisCount,
-                                        crossAxisSpacing: 16,
-                                        mainAxisSpacing: 32,
-                                        mainAxisExtent: 260,
+                                        crossAxisSpacing: isMobile ? 8 : 16,
+                                        mainAxisSpacing: isMobile ? 16 : 32,
+                                        mainAxisExtent: isMobile ? 270 : 290,
                                       ),
                                       itemCount: filteredGroups.length,
                                       itemBuilder: (context, index) {
                                         final group = filteredGroups[index];
-                                        final studentCount = attendanceProvider.getGroupStudentCount(group.id);
-                                        final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
+final studentCount = attendanceProvider.getGroupStudentCount(group.id);
+final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
 
-                                        return AnalyticGroupCard(
-                                          group: group,
-                                          studentCount: studentCount,
-                                          markedCount: stats['marked'] ?? 0,
-                                          presentCount: stats['present'] ?? 0,
-                                          absentCount: stats['absent'] ?? 0,
-                                          sickCount: stats['sick'] ?? 0,
-                                          ithubCount: stats['ithub'] ?? 0,
-                                          attendancePercentage: (stats['marked'] ?? 0) > 0 ? (((stats['present'] ?? 0) + (stats['ithub'] ?? 0)) / (stats['marked'] ?? 1) * 100) : 0.0,
-                                          onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => AnalyticAttendanceScreen(group: group)));} 
-                                        );
+// 🔍 Находим запись с рассчитанным процентом за ВЕСЬ диапазон
+final groupAnalyticData = _groupAnalytics.firstWhere(
+    (data) => data['groupId'] == group.id,
+    orElse: () => {'percent': '0.0'},
+);
+final double rangePercent = double.tryParse(groupAnalyticData['percent'] ?? '0.0') ?? 0.0;
+
+return AnalyticGroupCard(
+  group: group,
+  studentCount: studentCount,
+  markedCount: stats['marked'] ?? 0,
+  presentCount: stats['present'] ?? 0,
+  absentCount: stats['absent'] ?? 0,
+  sickCount: stats['sick'] ?? 0,
+  ithubCount: stats['ithub'] ?? 0,
+  // 🚀 Используем рассчитанный процент за ВЕСЬ диапазон
+  attendancePercentage: rangePercent, 
+  onTap: () {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => AnalyticAttendanceScreen(group: group)));
+  },
+);
                                       },
                                     );
                                   },
@@ -480,15 +572,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                               ],
                             ),
                             ListView(
-                              padding: const EdgeInsets.all(16.0),
+                              padding: EdgeInsets.all(isMobile ? 8.0 : 16.0),
                               children: [
-                                _buildStudentFilters(),
-                                const SizedBox(height: 16),
-                                _buildStudentGroupChips(groupsProvider.groups),
-                                const SizedBox(height: 16),
-                                _buildStudentSort(),
-                                const SizedBox(height: 16),
-                                ..._buildStudentList(filteredStudents),
+                                _buildStudentFilters(isMobile),
+                                 SizedBox(height: isMobile ? 8 : 16),
+                                _buildStudentGroupChips(groupsProvider.groups, isMobile),
+                                SizedBox(height: isMobile ? 8 : 16),
+                                _buildStudentSort(isMobile),
+                                 SizedBox(height: isMobile ? 8 : 16),
+                                ..._buildStudentList(filteredStudents, isMobile),
                               ],
                             ),
                           ],
@@ -500,71 +592,91 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildDateFilter() {
+Widget _buildDateFilter(bool isMobile) {
+    final List<AcademicRange> fixedRanges = _generateFixedRanges();
+
+    // Форматируем текущий выбранный диапазон для отображения
+    String dateLabel;
+    if (_isRange) {
+        dateLabel = '${_startDate != null ? DateFormat('dd.MM.yyyy').format(_startDate!) : 'Выбрать'} - ${_endDate != null ? DateFormat('dd.MM.yyyy').format(_endDate!) : 'Выбрать'}';
+    } else {
+        dateLabel = _startDate != null
+            ? DateFormat('dd.MM.yyyy').format(_startDate!)
+            : 'Выбрать дату';
+    }
+
+    // Ищем, соответствует ли текущий диапазон одному из фиксированных для отображения его метки
+    String? currentPresetLabel;
+    if (_startDate != null) {
+        // Вызов хелпера для поиска совпадения
+        final found = _firstWhereOrNull( 
+            fixedRanges,
+            (r) => r.startDate.year == _startDate!.year && 
+                   r.startDate.month == _startDate!.month && 
+                   r.startDate.day == _startDate!.day &&
+                   // Если это диапазон
+                   ((_isRange && r.endDate != null && r.endDate!.year == _endDate!.year && r.endDate!.month == _endDate!.month && r.endDate!.day == _endDate!.day) || 
+                   // Если это одиночный день
+                   (!_isRange && r.endDate == null)),
+        );
+        currentPresetLabel = found?.label;
+    }
+
+
     return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.calendar_today, size: 20),
-              label: Text(
-                _isRange
-                    ? '${_startDate != null ? DateFormat('dd.MM.yyyy').format(_startDate!) : 'Выберите'} - ${_endDate != null ? DateFormat('dd.MM.yyyy').format(_endDate!) : 'Выберите'}'
-                    : _startDate != null
-                        ? DateFormat('dd.MM.yyyy').format(_startDate!)
-                        : 'Выберите дату',
-              ),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                backgroundColor: Colors.blue.shade600,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                if (_isRange) {
-                  final pickedRange = await showDateRangePicker(
-                    context: context,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime.now(),
-                  );
-                  if (pickedRange != null) {
-                    setState(() {
-                      _startDate = pickedRange.start;
-                      _endDate = pickedRange.end;
-                    });
-                    _loadAnalytics();
-                  }
-                } else {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _startDate ?? DateTime.now(),
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime.now(),
-                  );
-                  if (picked != null) {
-                    setState(() => _startDate = picked);
-                    _loadAnalytics();
-                  }
-                }
-              },
-            ),
-          ),
-          const SizedBox(width: 16),
-          Switch(
-            value: _isRange,
-            onChanged: (value) {
-              setState(() {
-                _isRange = value;
-                if (!value) _endDate = null;
-              });
-              _loadAnalytics();
-            },
-          ),
-          const Text('Диапазон'),
-        ],
-      ),
+        padding: EdgeInsets.all(isMobile ? 8.0 : 16.0),
+        child: Row(
+            children: [
+                Expanded(
+                    child: ElevatedButton.icon(
+                        icon: Icon(Icons.calendar_today, size: isMobile ? 16 : 20),
+                        label: Text(
+                            currentPresetLabel ?? dateLabel, // Показать метку пресета или формат dd.MM.yyyy
+                            style: TextStyle(fontSize: isMobile ? 12 : 14),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: isMobile ? 8 : 12),
+                            backgroundColor: Colors.blue.shade600,
+                            foregroundColor: Colors.white,
+                        ),
+                        // Ручной выбор: вызываем Range Picker для диапазона
+                        onPressed: () async {
+                            final pickedRange = await showDateRangePicker(
+                                context: context,
+                                firstDate: DateTime(2000),
+                                lastDate: DateTime.now(),
+                                locale: const Locale('ru', 'RU'), 
+                            );
+                            if (pickedRange != null) {
+                                final isSingleDay = pickedRange.start.isAtSameMomentAs(pickedRange.end);
+                                _setFilterRange(
+                                    manualStart: pickedRange.start,
+                                    manualEnd: isSingleDay ? null : pickedRange.end,
+                                );
+                            }
+                        },
+                    ),
+                ),
+                const SizedBox(width: 8),
+                // Выбор фиксированных пресетов
+                PopupMenuButton<AcademicRange>(
+                    icon: Icon(Icons.filter_list, size: isMobile ? 20 : 24),
+                    onSelected: (AcademicRange range) {
+                        _setFilterRange(fixedRange: range);
+                    },
+                    itemBuilder: (BuildContext context) {
+                        return fixedRanges.map((AcademicRange range) {
+                            return PopupMenuItem<AcademicRange>(
+                                value: range,
+                                child: Text(range.label),
+                            );
+                        }).toList();
+                    },
+                ),
+            ],
+        ),
     );
-  }
+}
 
   List<Widget> _buildGroupList(
     List<Group> filteredGroups,
@@ -606,7 +718,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     }).toList();
   }
 
-  Widget _buildGroupFilters() {
+  Widget _buildGroupFilters(bool isMobile) {
     return GroupFilters(
       searchQuery: _groupSearchQuery,
       selectedSpecialty: _groupSelectedSpecialty,
@@ -619,7 +731,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildStudentFilters() {
+  Widget _buildStudentFilters(bool isMobile) {
     return StudentFilters(
       searchQuery: _studentSearchQuery,
       selectedSpecialty: _studentSelectedSpecialty,
@@ -632,7 +744,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildStudentGroupChips(List<Group> groups) {
+  Widget _buildStudentGroupChips(List<Group> groups, bool isMobile) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -680,7 +792,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildStudentSort() {
+  Widget _buildStudentSort(bool isMobile) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -711,7 +823,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
-  List<Widget> _buildStudentList(List<Map<String, dynamic>> filteredStudents) {
+  List<Widget> _buildStudentList(List<Map<String, dynamic>> filteredStudents, bool isMobile) {
     if (filteredStudents.isEmpty) {
       return [
         const Center(
@@ -745,16 +857,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         ),
       );
     }).toList();
-  }
-
-  Widget _buildLegendItem(String label, Color color, String value, int count) {
-    return Row(
-      children: [
-        Container(width: 16, height: 16, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Text('$label: $value% ($count)'),
-      ],
-    );
   }
 
   Widget _buildSkeletonLoader() {

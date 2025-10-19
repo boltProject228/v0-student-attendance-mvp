@@ -59,12 +59,21 @@ class HeadHomeDrawer extends StatelessWidget {
               Navigator.pushNamed(context, '/export');
             },
           ),
+          ListTile(
+  leading: const Icon(Icons.pie_chart, color: Colors.white),
+  title: const Text('Средняя посещаемость', style: TextStyle(color: Colors.white)),
+  onTap: () {
+    Navigator.pop(context);
+    Navigator.pushNamed(context, '/average_attendance');
+  },
+),
+
           const Divider(color: Colors.white24, thickness: 1),
           ListTile(
             leading: const Icon(Icons.exit_to_app, color: Colors.redAccent),
             title: const Text('Выйти', style: TextStyle(color: Colors.redAccent)),
             onTap: () {
-              Provider.of<AuthProvider>(context, listen: false).logout();
+              Provider.of<AuthProvider>(context, listen: false).logout(context);
               Navigator.pushReplacementNamed(context, '/login');
             },
           ),

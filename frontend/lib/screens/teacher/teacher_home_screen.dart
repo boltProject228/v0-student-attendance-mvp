@@ -24,7 +24,6 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   String _searchQuery = '';
   String _selectedSpecialty = 'Все';
   String _selectedCourse = 'Все';
-  // ❌ УДАЛЕНО: DateTime _selectedDate = DateTime.now();
   String? _selectedGroupId;
 
   final List<String> _specialties = [
@@ -47,15 +46,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       if (!isAuth) {
         Navigator.pushReplacementNamed(context, '/login');
       } else {
-        // Загрузка всех необходимых данных
         Provider.of<GroupsProvider>(context, listen: false).fetchGroups();
         Provider.of<AttendanceProvider>(context, listen: false).fetchStudents();
-        Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance(); // Загружает данные на "сегодня" по умолчанию
-        
-        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-        if (attendanceProvider.error != null) {
-          print('AttendanceProvider error in initState: ${attendanceProvider.error}');
-        }
+        Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance();
       }
     });
   }
@@ -82,14 +75,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     return groups.where((group) {
       final groupName = normalize(group.name);
       final specialty = normalize(group.specialty);
-
       final matchesSearch = groupName.contains(normalizedQuery) ||
           students.any((s) => s.groupId == group.id && normalize(s.fullName).contains(normalizedQuery));
-
       final matchesCourse = _selectedCourse == 'Все' || group.course.toString() == _selectedCourse;
       final matchesSpecialty = _selectedSpecialty == 'Все' || specialty.contains(normalize(_selectedSpecialty));
       final matchesChip = _selectedGroupId == null || _selectedGroupId == group.id;
-
       return matchesSearch && matchesCourse && matchesSpecialty && matchesChip;
     }).toList();
   }
@@ -105,53 +95,37 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
 
     final filteredGroups = _filteredGroups(groupsProvider.groups, attendanceProvider.students);
-    // ✅ ИСПОЛЬЗУЕМ ТЕКУЩУЮ ДАТУ, Т.К. ПОЛЬЗОВАТЕЛЬ НЕ МОЖЕТ ЕЕ ВЫБРАТЬ
-    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now()); 
+    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final mockGroups = MockData.mockGetGroups();
     final isMobile = MediaQuery.of(context).size.width < 600;
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: buildTeacherHomeAppBar(context, authProvider),
-      drawer: const TeacherHomeDrawer(),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            await Provider.of<GroupsProvider>(context, listen: false).fetchGroups();
-            await Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance();
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (isMobile)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      HomeFilters(
-                        searchQuery: _searchQuery,
-                        selectedSpecialty: _selectedSpecialty,
-                        selectedCourse: _selectedCourse,
-                        specialties: _specialties,
-                        availableCourses: const ['Все', '1', '2', '3', '4'],
-                        onSearchChanged: (value) => setState(() => _searchQuery = value),
-                        onSpecialtyChanged: (value) => setState(() {
-                          _selectedSpecialty = value;
-                          _selectedCourse = 'Все';
-                        }),
-                        onCourseChanged: (value) => setState(() => _selectedCourse = value),
-                      ),
-                      // ❌ УДАЛЕНО: ElevatedButton.icon для выбора даты
-                    ],
-                  )
-                else
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: HomeFilters(
+    // 🧱 Вот тут мы оборачиваем Scaffold в PopScope
+    return PopScope(
+      canPop: false, // 🚫 Блокируем возврат назад
+      onPopInvoked: (didPop) {
+        // Ничего не делаем — блокируем
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade50,
+        appBar: buildTeacherHomeAppBar(context, authProvider),
+        drawer: const TeacherHomeDrawer(),
+        body: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: () async {
+              await Provider.of<GroupsProvider>(context, listen: false).fetchGroups();
+              await Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance();
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (isMobile)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        HomeFilters(
                           searchQuery: _searchQuery,
                           selectedSpecialty: _selectedSpecialty,
                           selectedCourse: _selectedCourse,
@@ -164,127 +138,140 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                           }),
                           onCourseChanged: (value) => setState(() => _selectedCourse = value),
                         ),
-                      ),
-                      // ❌ УДАЛЕНО: Секция для выбора даты в десктопном режиме
-                    ],
-                  ),
-                const SizedBox(height: 24),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Все группы',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (groupsProvider.groups.isNotEmpty)
-                  SizedBox(
-                    height: 50,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: mockGroups.map((group) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: ActionChip(
-                              label: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  group.name,
-                                  style: const TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              backgroundColor: Colors.blue.shade100,
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => AttendanceScreen(group: group),
-                                  ),
-                                );
-                              },
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Группы',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                filteredGroups.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text(
-                            'Группы не найдены',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ],
+                    )
+                  else
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: HomeFilters(
+                            searchQuery: _searchQuery,
+                            selectedSpecialty: _selectedSpecialty,
+                            selectedCourse: _selectedCourse,
+                            specialties: _specialties,
+                            availableCourses: const ['Все', '1', '2', '3', '4'],
+                            onSearchChanged: (value) => setState(() => _searchQuery = value),
+                            onSpecialtyChanged: (value) => setState(() {
+                              _selectedSpecialty = value;
+                              _selectedCourse = 'Все';
+                            }),
+                            onCourseChanged: (value) => setState(() => _selectedCourse = value),
                           ),
                         ),
-                      )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final width = constraints.maxWidth;
-                          int crossAxisCount = 1;
-
-                          if (width > 1200) {
-                            crossAxisCount = 3;
-                          } else if (width > 800) {
-                            crossAxisCount = 2;
-                          }
-
-                          return GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.only(bottom: 20),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 32,
-                              mainAxisExtent: 260,
-                            ),
-                            itemCount: filteredGroups.length,
-                            itemBuilder: (context, index) {
-                              final group = filteredGroups[index];
-                              final studentCount = attendanceProvider.getGroupStudentCount(group.id);
-                              
-                              // ✅ Используем текущую дату (dateStr) для получения статистики
-                              final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr); 
-
-                              return GroupCard(
-                                group: group,
-                                studentCount: studentCount,
-                                markedCount: stats['marked'] ?? 0,
-                                presentCount: stats['present'] ?? 0,
-                                absentCount: stats['absent'] ?? 0,
-                                sickCount: stats['sick'] ?? 0,
-                                ithubCount: stats['ithub'] ?? 0,
-                                onTap: () async {
-                                  final result = await Navigator.push(
+                      ],
+                    ),
+                  const SizedBox(height: 24),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Все группы',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (groupsProvider.groups.isNotEmpty)
+                    SizedBox(
+                      height: 50,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: mockGroups.map((group) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: ActionChip(
+                                label: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    group.name,
+                                    style: const TextStyle(
+                                      color: Colors.blue,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                backgroundColor: Colors.blue.shade100,
+                                onPressed: () {
+                                  Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) => AttendanceScreen(group: group),
                                     ),
                                   );
-
-                                  if (result == true) {
-                                    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-                                    // ✅ Обновление статистики для текущей группы и ТЕКУЩЕЙ даты после возвращения
-                                    await attendanceProvider.fetchAttendance(groupId: group.id, date: dateStr); 
-                                  }
                                 },
-                              );
-                            },
-                          );
-                        },
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
-              ],
+                    ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Группы',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  filteredGroups.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              'Группы не найдены',
+                              style: TextStyle(fontSize: 16, color: Colors.grey),
+                            ),
+                          ),
+                        )
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            final width = constraints.maxWidth;
+                            int crossAxisCount = 1;
+                            if (width > 1200) {
+                              crossAxisCount = 3;
+                            } else if (width > 800) {
+                              crossAxisCount = 2;
+                            }
+                            return GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              padding: const EdgeInsets.only(bottom: 20),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: crossAxisCount,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 32,
+                                mainAxisExtent: 260,
+                              ),
+                              itemCount: filteredGroups.length,
+                              itemBuilder: (context, index) {
+                                final group = filteredGroups[index];
+                                final studentCount = attendanceProvider.getGroupStudentCount(group.id);
+                                final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
+                                return GroupCard(
+                                  group: group,
+                                  studentCount: studentCount,
+                                  markedCount: stats['marked'] ?? 0,
+                                  presentCount: stats['present'] ?? 0,
+                                  absentCount: stats['absent'] ?? 0,
+                                  sickCount: stats['sick'] ?? 0,
+                                  ithubCount: stats['ithub'] ?? 0,
+                                  onTap: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => AttendanceScreen(group: group),
+                                      ),
+                                    );
+                                    if (result == true) {
+                                      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+                                      await attendanceProvider.fetchAttendance(groupId: group.id, date: dateStr);
+                                    }
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ],
+              ),
             ),
           ),
         ),

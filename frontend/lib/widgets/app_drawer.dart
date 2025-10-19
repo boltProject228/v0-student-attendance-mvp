@@ -86,7 +86,7 @@ class AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.logout),
             title: const Text('Выйти'),
             onTap: () async {
-              await authProvider.logout();
+              await authProvider.logout(context);
               if (context.mounted) {
                 Navigator.pushReplacementNamed(context, '/login');
               }

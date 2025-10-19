@@ -44,7 +44,7 @@ class TeacherHomeDrawer extends StatelessWidget {
             leading: const Icon(Icons.exit_to_app, color: Colors.redAccent),
             title: const Text('Выйти', style: TextStyle(color: Colors.redAccent)),
             onTap: () {
-              Provider.of<AuthProvider>(context, listen: false).logout();
+              Provider.of<AuthProvider>(context, listen: false).logout(context);
               Navigator.pushReplacementNamed(context, '/login');
             },
           ),
