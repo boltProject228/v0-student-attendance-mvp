@@ -34,7 +34,9 @@ class GroupCard extends StatelessWidget {
         final double titleFontSize = (cardWidth * 0.055).clamp(14, 20);
         final double subtitleFontSize = (cardWidth * 0.04).clamp(12, 16);
         final double labelFontSize = (cardWidth * 0.035).clamp(10, 14);
-        final double countFontSize = (cardWidth * 0.045).clamp(12, 18);
+        
+        // 🔑 ИЗМЕНЕНИЕ: Увеличение коэффициента и диапазона для countFontSize
+        final double countFontSize = (cardWidth * 0.06).clamp(16, 24); 
 
         return SizedBox(
           height: cardHeight,
@@ -56,7 +58,7 @@ class GroupCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 🟦 Шапка
+                  // 🟦 Шапка (без изменений)
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -102,7 +104,7 @@ class GroupCard extends StatelessWidget {
                     ),
                   ),
 
-                  // 📊 Статистика
+                  // 📊 Статистика (без изменений в структуре, но с новым countFontSize)
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -154,7 +156,7 @@ class GroupCard extends StatelessWidget {
     int count,
     Color color,
     double labelFontSize,
-    double countFontSize,
+    double countFontSize, // Используем новый, увеличенный размер
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,7 +165,7 @@ class GroupCard extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: labelFontSize,
-            fontWeight: FontWeight.w600, // 👈 стал чуть жирнее
+            fontWeight: FontWeight.w600, 
             color: Colors.grey.shade600,
             overflow: TextOverflow.ellipsis,
           ),
@@ -172,7 +174,7 @@ class GroupCard extends StatelessWidget {
         Text(
           '$count',
           style: TextStyle(
-            fontSize: countFontSize,
+            fontSize: countFontSize, // Применен увеличенный размер
             fontWeight: FontWeight.bold,
             color: color,
           ),

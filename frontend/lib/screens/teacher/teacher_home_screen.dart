@@ -103,7 +103,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     return PopScope(
       canPop: false, // 🚫 Блокируем возврат назад
       onPopInvoked: (didPop) {
-        // Ничего не делаем — блокируем
+        
       },
       child: Scaffold(
         backgroundColor: Colors.grey.shade50,
@@ -210,7 +210,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                     'Группы',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   filteredGroups.isEmpty
                       ? const Center(
                           child: Padding(

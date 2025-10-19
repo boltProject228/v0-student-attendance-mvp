@@ -9,8 +9,9 @@ class AnalyticGroupCard extends StatelessWidget {
   final int sickCount;
   final int ithubCount;
   final int markedCount;
-  final double? attendancePercentage; // Nullable
+  final double? attendancePercentage;
   final VoidCallback onTap;
+  final bool isRangeSelected;
 
   const AnalyticGroupCard({
     super.key,
@@ -21,11 +22,11 @@ class AnalyticGroupCard extends StatelessWidget {
     required this.sickCount,
     required this.ithubCount,
     required this.markedCount,
-    this.attendancePercentage, // Nullable
+    this.attendancePercentage,
     required this.onTap,
+    required this.isRangeSelected,
   });
 
-  // 💡 Метод для определения цвета процента
   Color _getPercentColor(double percent) {
     if (percent >= 80) return Colors.green;
     if (percent >= 50) return Colors.orange;
@@ -34,37 +35,40 @@ class AnalyticGroupCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Получаем процент для отображения, если null, используем 0.0
     final double displayPercent = attendancePercentage ?? 0.0;
-    
-    // 🧮 Расчет процентов посещаемости
-    final int totalMarked = presentCount + absentCount + sickCount + ithubCount;
-    // Предотвращаем деление на ноль: если отметок нет, используем 1.0 (чтобы проценты были 0.0)
-    final double totalMarkedDouble = totalMarked == 0 ? 1.0 : totalMarked.toDouble(); 
 
+    final int totalMarked = presentCount + absentCount + sickCount + ithubCount;
+    final double totalMarkedDouble = totalMarked == 0 ? 1.0 : totalMarked.toDouble();
     final double presentPercent = (presentCount / totalMarkedDouble) * 100;
     final double absentPercent = (absentCount / totalMarkedDouble) * 100;
     final double sickPercent = (sickCount / totalMarkedDouble) * 100;
     final double ithubPercent = (ithubCount / totalMarkedDouble) * 100;
 
+    final bool showCounts = !isRangeSelected;
+    
+    // Используйте высоту, которая у вас задана в mainAxisExtent (например, 303.0)
+    const cardDesiredHeight = 303.0; 
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = constraints.maxWidth;
 
-        final double titleFontSize = (cardWidth * 0.055).clamp(13, 20); // Было 14
-      final double subtitleFontSize = (cardWidth * 0.04).clamp(11, 16); // Было 12
-      final double labelFontSize = (cardWidth * 0.035).clamp(9, 14); // Было 10
-      final double countFontSize = (cardWidth * 0.045).clamp(11, 18); // Было 12
-      final double percentFontSize = (cardWidth * 0.05).clamp(13, 20); // Было 14
-
-     
-          return InkWell(
+        // 📏 Адаптивные размеры шрифтов (без изменений)
+        final double titleFontSize = (cardWidth * 0.055).clamp(14, 20);
+        final double subtitleFontSize = (cardWidth * 0.04).clamp(11, 16);
+        final double labelFontSize = (cardWidth * 0.035).clamp(9, 14);
+        final double mainValueFontSize = (cardWidth * 0.06).clamp(16, 24); 
+        final double percentFontSize = (cardWidth * 0.05).clamp(13, 20);
+        
+        return SizedBox( 
+          height: cardDesiredHeight,
+          child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
@@ -75,8 +79,9 @@ class AnalyticGroupCard extends StatelessWidget {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
+                // ❌ УДАЛЕНО: mainAxisSize: MainAxisSize.min. Нужно для Expanded.
                 children: [
-                  // 🟦 Шапка (без изменений)
+                  // Header
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -85,15 +90,15 @@ class AnalyticGroupCard extends StatelessWidget {
                         end: Alignment.centerRight,
                       ),
                       borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        topRight: Radius.circular(16),
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded( 
+                        Expanded(
                           child: Text(
                             'Группа ${group.name}',
                             style: TextStyle(
@@ -106,8 +111,8 @@ class AnalyticGroupCard extends StatelessWidget {
                         ),
                         Row(
                           children: [
-                            const Icon(Icons.people_alt_rounded, size: 16, color: Colors.white70),
-                            const SizedBox(width: 6),
+                            const Icon(Icons.people_alt_rounded, size: 14, color: Colors.white70),
+                            const SizedBox(width: 4),
                             Text(
                               '$studentCount студентов',
                               style: TextStyle(
@@ -121,50 +126,54 @@ class AnalyticGroupCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  // 📊 Статистика (с процентами)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    child: Column(
-                      children: [
-                        _buildStatsRow([
-                          // Передаем рассчитанные проценты
-                          _buildStatusText("Присутствующие", presentCount, Colors.green, labelFontSize, countFontSize, presentPercent),
-                          _buildStatusText("Отсутствующие", absentCount, Colors.red, labelFontSize, countFontSize, absentPercent),
-                        ]),
-                        const SizedBox(height: 6),
-                        _buildStatsRow([
-                          _buildStatusText("Больничный", sickCount, Colors.orange, labelFontSize, countFontSize, sickPercent),
-                          _buildStatusText("IT-hub", ithubCount, Colors.purple, labelFontSize, countFontSize, ithubPercent),
-                        ]),
-                        const SizedBox(height: 6),
-                        // Отметки / Не отмечено - оставим только количество, так как это другие метрики (студенты)
-                        _buildStatsRow([
-                          _buildStatusText("Отмечено", markedCount, Colors.blue, labelFontSize, countFontSize, -1), // -1 как флаг, что процент не нужен
-                          _buildStatusText("Не отмечено", studentCount - markedCount, Colors.grey, labelFontSize, countFontSize, -1), // -1 как флаг, что процент не нужен
-                        ]),
-                        const SizedBox(height: 10), // Отступ перед процентом
-                      ],
+                  
+                  // 📊 Statistics
+                  Expanded( // 🔑 ИЗМЕНЕНИЕ: Блок статистики занимает ВСЁ СВОБОДНОЕ МЕСТО!
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
+                      child: Column(
+                        // 🔑 ИЗМЕНЕНИЕ: Равномерно распределяет три строки статистики
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildStatsRow([
+                            _buildStatusText("Присутствующие", presentCount, Colors.green, labelFontSize, mainValueFontSize, presentPercent, showCounts),
+                            _buildStatusText("Отсутствующие", absentCount, Colors.red, labelFontSize, mainValueFontSize, absentPercent, showCounts),
+                          ]),
+                          // ❌ УДАЛЕНЫ SizedBox(height: 12), т.к. используется spaceEvenly
+                          _buildStatsRow([
+                            _buildStatusText("Больничный", sickCount, Colors.orange, labelFontSize, mainValueFontSize, sickPercent, showCounts),
+                            _buildStatusText("IT-hub", ithubCount, Colors.purple, labelFontSize, mainValueFontSize, ithubPercent, showCounts),
+                          ]),
+                          // ❌ УДАЛЕНЫ SizedBox(height: 12)
+                          _buildStatsRow([
+                            _buildStatusText("Отмечено", markedCount, Colors.blue, labelFontSize, mainValueFontSize, -1, true),
+                            _buildStatusText("Не отмечено", studentCount - markedCount, Colors.grey, labelFontSize, mainValueFontSize, -1, true),
+                          ]),
+                        ],
+                      ),
                     ),
                   ),
-                  // 🎯 Средний процент посещаемости (ВНИЗУ) - без изменений
+                  
+                  // 🎯 Footer Content
+                  // ❌ УДАЛЕНО: const Spacer(), (Виновник "пропасти")
                   Container(
-                    padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                    padding: const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 8), 
                     decoration: BoxDecoration(
                       border: Border(top: BorderSide(color: Colors.grey.shade200)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Средний \% посещаемости:',
+                        Text(
+                          'Средний % посещаемости:',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: labelFontSize + 1,
                             fontWeight: FontWeight.w600,
                             color: Colors.black87,
                           ),
                         ),
                         Text(
-                          // Отображаем процент за ВЕСЬ диапазон
                           '${displayPercent.toStringAsFixed(1)}%',
                           style: TextStyle(
                             fontSize: percentFontSize,
@@ -178,7 +187,7 @@ class AnalyticGroupCard extends StatelessWidget {
                 ],
               ),
             ),
-          
+          ),
         );
       },
     );
@@ -199,20 +208,20 @@ class AnalyticGroupCard extends StatelessWidget {
     );
   }
 
-  // 📝 Обновленный метод для отображения процента
   Widget _buildStatusText(
     String label,
     int count,
     Color color,
     double labelFontSize,
-    double countFontSize,
-    double percentage, // Новый параметр
+    double mainValueFontSize,
+    double percentage,
+    bool showCount,
   ) {
-    // Проверяем, нужно ли отображать процент (используем -1 как флаг, что не нужно)
     final bool showPercentage = percentage >= 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label,
@@ -227,26 +236,30 @@ class AnalyticGroupCard extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text(
-              '$count',
-              style: TextStyle(
-                fontSize: countFontSize,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-            // Отображаем процент только если он нужен
-            if (showPercentage) ...[
-              const SizedBox(width: 6),
+            if (showCount)
               Text(
-                '(${percentage.toStringAsFixed(1)}%)',
+                '$count',
                 style: TextStyle(
-                  fontSize: labelFontSize,
-                  fontWeight: FontWeight.w500,
+                  fontSize: mainValueFontSize,
+                  fontWeight: FontWeight.bold,
                   color: color,
                 ),
               ),
-            ],
+            
+            if (showPercentage)
+              Padding(
+                padding: EdgeInsets.only(left: showCount ? 6 : 0), 
+                child: Text(
+                  showCount
+                      ? '(${percentage.toStringAsFixed(1)}%)'
+                      : '${percentage.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: showCount ? labelFontSize : mainValueFontSize, 
+                    fontWeight: showCount ? FontWeight.w500 : FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ),
           ],
         ),
       ],

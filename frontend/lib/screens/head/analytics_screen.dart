@@ -2,17 +2,16 @@ import 'package:attendance_system/models/student.dart';
 import 'package:attendance_system/providers/auth_provider.dart';
 import 'package:attendance_system/screens/head/analytic_attendance_screen.dart';
 import 'package:attendance_system/widgets/admin/admin_home_drawer.dart';
+import 'package:attendance_system/widgets/analytic_group_card.dart';
+import 'package:attendance_system/widgets/head/head_home_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
-
+import '../../models/group.dart';
 import '../../providers/attendance_provider.dart';
 import '../../providers/groups_provider.dart';
-import '../../widgets/head/head_home_drawer.dart';
-import '../../models/group.dart';
-import '../../widgets/analytic_group_card.dart';
 
 class AcademicRange {
   final String label;
@@ -49,7 +48,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
   String _studentSearchQuery = '';
   String _studentSelectedSpecialty = 'Все';
   String _studentSelectedCourse = 'Все';
-  String _selectedGroupChip = ''; // Для фильтра по чипу группы
+  String _selectedGroupChip = '';
   SortOrder _studentSortOrder = SortOrder.descending;
 
   late TabController _tabController;
@@ -69,15 +68,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
   final List<String> _courses = ['Все', '1', '2', '3', '4'];
 
   // Конфигурируемые даты семестров
-  static const int semester1StartMonth = 9;  // Сентябрь
-  static const int semester1StartDay = 2;    // 2 сентября
-  static const int semester1EndMonth = 1;    // Январь
-  static const int semester1EndDay = 15;     // 15 января (изменить по необходимости)
+  static const int semester1StartMonth = 9;
+  static const int semester1StartDay = 2;
+  static const int semester1EndMonth = 1;
+  static const int semester1EndDay = 15;
 
-  static const int semester2StartMonth = 2;  // Февраль
-  static const int semester2StartDay = 1;    // 1 февраля
-  static const int semester2EndMonth = 6;    // Июнь
-  static const int semester2EndDay = 30;     // 30 июня (изменить по необходимости)
+  static const int semester2StartMonth = 2;
+  static const int semester2StartDay = 1;
+  static const int semester2EndMonth = 6;
+  static const int semester2EndDay = 30;
 
   @override
   void initState() {
@@ -108,17 +107,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
       final overallAnalytics = await _calculateOverallAnalytics(attendanceProvider, groupsProvider);
       final groupAnalytics = await _calculateGroupAnalytics(attendanceProvider, groupsProvider);
-      final studentAnalytics = await _calculateStudentAnalytics(attendanceProvider);
+      final studentAnalytics = await _calculateStudentAnalytics(attendanceProvider, groupsProvider);
 
-      setState(() {
-        _analyticsData = overallAnalytics;
-        _groupAnalytics = groupAnalytics;
-        _studentAnalytics = _sortAnalytics(studentAnalytics, _studentSortOrder);
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() {
+          _analyticsData = overallAnalytics;
+          _groupAnalytics = groupAnalytics;
+          _studentAnalytics = _sortAnalytics(studentAnalytics, _studentSortOrder);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Не удалось загрузить данные аналитики'),
@@ -131,8 +132,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
   List<Map<String, dynamic>> _sortAnalytics(List<Map<String, dynamic>> data, SortOrder order) {
     data.sort((a, b) {
-      final aVal = double.parse(a['percent']);
-      final bVal = double.parse(b['percent']);
+      final aVal = double.tryParse(a['percent'].toString()) ?? 0.0;
+      final bVal = double.tryParse(b['percent'].toString()) ?? 0.0;
       return order == SortOrder.ascending ? aVal.compareTo(bVal) : bVal.compareTo(aVal);
     });
     return data;
@@ -157,7 +158,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
           : [DateFormat('yyyy-MM-dd').format(start!)];
       for (var date in dates) {
         final stats = attendanceProvider.getGroupAttendanceStats(group.id, date);
-        present += stats['present'] ?? 0;
+        present += (stats['present'] ?? 0) + (stats['ithub'] ?? 0);
         absent += stats['absent'] ?? 0;
         sick += stats['sick'] ?? 0;
         ithub += stats['ithub'] ?? 0;
@@ -190,25 +191,42 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         ? _generateDateRange(start!, end!)
         : [DateFormat('yyyy-MM-dd').format(start!)];
 
+    final numDays = dates.length;
+
     List<Map<String, dynamic>> groupData = [];
     for (var group in groupsProvider.groups) {
       double present = 0;
-      int totalRecords = 0;
+      double absent = 0;
+      double sick = 0;
+      double ithub = 0;
+      int totalMarked = 0;
       int studentCount = attendanceProvider.getGroupStudentCount(group.id);
+
       for (var date in dates) {
         final stats = attendanceProvider.getGroupAttendanceStats(group.id, date);
         present += stats['present'] ?? 0;
-        totalRecords += stats['marked'] ?? 0;
+        absent += stats['absent'] ?? 0;
+        sick += stats['sick'] ?? 0;
+        ithub += stats['ithub'] ?? 0;
+        totalMarked += stats['marked'] ?? 0;
       }
-      final total = totalRecords > 0 ? totalRecords : 1;
-      final percent = (present / total * 100).toStringAsFixed(1);
+
+      final total = totalMarked > 0 ? totalMarked : 1;
+      final attendancePercent = ((present + ithub) / total * 100).toStringAsFixed(1);
+
       groupData.add({
         'groupId': group.id,
         'name': group.name,
         'specialty': group.specialty,
         'course': group.course,
-        'percent': percent,
+        'percent': attendancePercent,
         'studentCount': studentCount,
+        'presentCount': present.toInt(),
+        'absentCount': absent.toInt(),
+        'sickCount': sick.toInt(),
+        'ithubCount': ithub.toInt(),
+        'markedCount': totalMarked,
+        'numDays': numDays,
       });
     }
 
@@ -217,12 +235,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
   Future<List<Map<String, dynamic>>> _calculateStudentAnalytics(
     AttendanceProvider attendanceProvider,
+    GroupsProvider groupsProvider,
   ) async {
     final start = _isRange ? _startDate : _startDate;
     final end = _isRange ? _endDate : _startDate;
     final dates = _isRange
         ? _generateDateRange(start!, end!)
         : [DateFormat('yyyy-MM-dd').format(start!)];
+
+    final groupMap = {for (var group in groupsProvider.groups) group.id: group};
 
     List<Map<String, dynamic>> studentData = [];
     for (var student in attendanceProvider.students) {
@@ -237,10 +258,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
       }
       final total = totalRecords > 0 ? totalRecords : 1;
       final percent = (present / total * 100).toStringAsFixed(1);
+
+      final String groupName = groupMap[student.groupId]?.name ?? 'Группа не указана';
+
       studentData.add({
         'studentId': student.id,
         'fullName': student.fullName,
         'groupId': student.groupId,
+        'groupName': groupName,
         'percent': percent,
       });
     }
@@ -250,9 +275,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
   List<String> _generateDateRange(DateTime start, DateTime end) {
     final dates = <String>[];
-    for (var date = start;
-        date.isBefore(end.add(const Duration(days: 1)));
-        date = date.add(const Duration(days: 1))) {
+    for (var date = start; date.isBefore(end.add(const Duration(days: 1))); date = date.add(const Duration(days: 1))) {
       dates.add(DateFormat('yyyy-MM-dd').format(date));
     }
     return dates;
@@ -306,15 +329,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     return analytics.where((data) {
       final fullName = normalize(data['fullName']);
       final matchesSearch = fullName.contains(normalizedQuery);
-
-      // Фильтр по группе (чип)
       final matchesGroup = _selectedGroupChip.isEmpty || data['groupId'] == _selectedGroupChip;
-
-      // Фильтр по specialty и course через группу студента
-      final studentGroup = groups.firstWhere((g) => g.id == data['groupId'], orElse: () => Group(id: '', name: '', specialty: '', course: 0, createdAt: DateTime.now()));
+      final studentGroup = groups.firstWhere(
+        (g) => g.id == data['groupId'],
+        orElse: () => Group(id: '', name: '', specialty: '', course: 0, createdAt: DateTime.now()),
+      );
       final specialty = normalize(studentGroup.specialty);
       final courseStr = studentGroup.course.toString();
-
       final matchesCourse = _studentSelectedCourse == 'Все' || courseStr == _studentSelectedCourse;
       final matchesSpecialty = _studentSelectedSpecialty == 'Все' || specialty.contains(normalize(_studentSelectedSpecialty));
 
@@ -328,75 +349,49 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     return Colors.red;
   }
 
-// ... внутри class _AnalyticsScreenState extends State<AnalyticsScreen> ...
-
-List<AcademicRange> _generateFixedRanges() {
+  List<AcademicRange> _generateFixedRanges() {
     final now = DateTime.now();
     List<AcademicRange> ranges = [];
 
-    // 1. Сегодня
     ranges.add(AcademicRange(label: 'Сегодня', startDate: now.copyWith(hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0)));
 
-    // Определяем текущий академический год
     int acYearStart = now.month >= semester1StartMonth ? now.year : now.year - 1;
     int acYearEnd = acYearStart + 1;
 
-    // --- I СЕМЕСТР (STATIC) ---
     DateTime iStart = DateTime(acYearStart, semester1StartMonth, semester1StartDay);
     DateTime iEnd = DateTime(acYearEnd, semester1EndMonth, semester1EndDay);
     String iLabel = 'I семестр ($acYearStart/$acYearEnd)';
-    
-    // Добавляем заголовок I Семестра
     ranges.add(AcademicRange(label: iLabel, startDate: iStart, endDate: iEnd));
 
-    // Месяцы I Семестра (Сентябрь – Январь)
     DateTime month = DateTime(acYearStart, 9, 1);
-    
     while (month.isBefore(iEnd.add(const Duration(days: 1)))) {
-        DateTime startOfMonth = month;
-        DateTime endOfMonth = DateTime(startOfMonth.year, startOfMonth.month + 1, 0); 
-        
-        DateTime finalEndDate = endOfMonth.isAfter(iEnd) ? iEnd : endOfMonth;
-
-        // ИСПРАВЛЕНИЕ: Используем 'LLLL' для Именительного падежа,
-        // и не используем replaceFirstMapped, потому что 'LLLL' уже делает первую букву заглавной.
-        String monthLabel = DateFormat('LLLL yyyy', 'ru_RU').format(startOfMonth);
-        
-        ranges.add(AcademicRange(label: monthLabel, startDate: startOfMonth, endDate: finalEndDate));
-        
-        month = _addMonth(month);
-        
-        if (month.isAfter(iEnd)) break;
+      DateTime startOfMonth = month;
+      DateTime endOfMonth = DateTime(startOfMonth.year, startOfMonth.month + 1, 0);
+      DateTime finalEndDate = endOfMonth.isAfter(iEnd) ? iEnd : endOfMonth;
+      String monthLabel = DateFormat('LLLL yyyy', 'ru_RU').format(startOfMonth);
+      ranges.add(AcademicRange(label: monthLabel, startDate: startOfMonth, endDate: finalEndDate));
+      month = _addMonth(month);
+      if (month.isAfter(iEnd)) break;
     }
 
-    // --- II СЕМЕСТР (STATIC) ---
     DateTime iiStart = DateTime(acYearEnd, semester2StartMonth, semester2StartDay);
     DateTime iiEnd = DateTime(acYearEnd, semester2EndMonth, semester2EndDay);
     String iiLabel = 'II семестр ($acYearStart/$acYearEnd)';
-
-    // Добавляем заголовок II Семестра
     ranges.add(AcademicRange(label: iiLabel, startDate: iiStart, endDate: iiEnd));
 
-    // Месяцы II Семестра (Февраль – Июнь)
     DateTime monthII = DateTime(acYearEnd, semester2StartMonth, 1);
-    
     while (monthII.isBefore(iiEnd.add(const Duration(days: 1)))) {
-        DateTime startOfMonth = monthII;
-        DateTime endOfMonth = DateTime(startOfMonth.year, startOfMonth.month + 1, 0); 
-        
-        DateTime finalEndDate = endOfMonth.isAfter(iiEnd) ? iiEnd : endOfMonth;
-
-        // ИСПРАВЛЕНИЕ: Используем 'LLLL'
-        String monthLabel = DateFormat('LLLL yyyy', 'ru_RU').format(startOfMonth);
-        ranges.add(AcademicRange(label: monthLabel, startDate: startOfMonth, endDate: finalEndDate));
-        
-        monthII = _addMonth(monthII);
-        
-        if (monthII.isAfter(iiEnd)) break;
+      DateTime startOfMonth = monthII;
+      DateTime endOfMonth = DateTime(startOfMonth.year, startOfMonth.month + 1, 0);
+      DateTime finalEndDate = endOfMonth.isAfter(iiEnd) ? iiEnd : endOfMonth;
+      String monthLabel = DateFormat('LLLL yyyy', 'ru_RU').format(startOfMonth);
+      ranges.add(AcademicRange(label: monthLabel, startDate: startOfMonth, endDate: finalEndDate));
+      monthII = _addMonth(monthII);
+      if (monthII.isAfter(iiEnd)) break;
     }
-    
+
     return ranges;
-}
+  }
 
   DateTime _addMonth(DateTime date) {
     int nextMonth = date.month + 1;
@@ -408,7 +403,6 @@ List<AcademicRange> _generateFixedRanges() {
     return DateTime(nextYear, nextMonth, 1);
   }
 
-  // Единый метод для установки диапазона (заменяет старую логику)
   Future<void> _setFilterRange({
     AcademicRange? fixedRange,
     DateTime? manualStart,
@@ -421,16 +415,12 @@ List<AcademicRange> _generateFixedRanges() {
     if (fixedRange != null) {
       newStartDate = fixedRange.startDate;
       newEndDate = fixedRange.endDate;
-      // Если endDate есть, это диапазон
       newIsRange = fixedRange.endDate != null;
     } else if (manualStart != null) {
-      // Ручной выбор
       newStartDate = manualStart;
       newEndDate = manualEnd;
-      // Если есть конечная дата, это диапазон
       newIsRange = manualEnd != null;
     } else {
-      // По умолчанию - Сегодня
       newStartDate = DateTime.now();
       newEndDate = null;
       newIsRange = false;
@@ -442,25 +432,21 @@ List<AcademicRange> _generateFixedRanges() {
       _isRange = newIsRange;
     });
 
-    // Всегда вызываем загрузку данных после изменения диапазона
-    _loadAnalytics();
-
-
+    await _loadAnalytics();
   }
 
-      // Метод-хелпер для поиска первого элемента или возврата null (заменяет функциональность .firstWhereOrNull)
-T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T element) test) {
-  for (var element in items) {
-    if (test(element)) return element;
+  T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T element) test) {
+    for (var element in items) {
+      if (test(element)) return element;
+    }
+    return null;
   }
-  return null;
-}
 
   @override
   Widget build(BuildContext context) {
-    final attendanceProvider = Provider.of<AttendanceProvider>(context);
-    final groupsProvider = Provider.of<GroupsProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     final filteredGroups = _filteredGroups(_groupAnalytics, groupsProvider.groups, attendanceProvider.students);
     final filteredStudents = _filteredStudents(_studentAnalytics, attendanceProvider.students, groupsProvider.groups);
@@ -476,19 +462,27 @@ T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T element) test) {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
+    final double titleFontSize = isMobile ? 17.0 : 20.0;
+    final double tabFontSize = isMobile ? 12.0 : 20.0;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Аналитика посещаемости'),
-        backgroundColor: Colors.white,
-        elevation: 2,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAnalytics,
-          ),
-        ],
+      title: Text(
+        'Аналитика посещаемости',
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: titleFontSize, // 👈 Адаптивный размер шрифта
+        ),
       ),
+      backgroundColor: Colors.white,
+      elevation: 2,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _loadAnalytics,
+        ),
+      ],
+    ),
       drawer: drawerWidget,
       body: RefreshIndicator(
         onRefresh: _loadAnalytics,
@@ -502,10 +496,11 @@ T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T element) test) {
                       SizedBox(height: isMobile ? 12 : 24),
                       TabBar(
                         controller: _tabController,
-                        labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                        labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: tabFontSize),
                         tabs: const [
                           Tab(text: 'Аналитика по группам'),
                           Tab(text: 'Аналитика по студентам'),
+                        
                         ],
                       ),
                       Expanded(
@@ -521,7 +516,6 @@ T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T element) test) {
                                   builder: (context, constraints) {
                                     final width = constraints.maxWidth;
                                     int crossAxisCount = 1;
-
                                     if (width > 1200) {
                                       crossAxisCount = 3;
                                     } else if (width > 800) {
@@ -534,37 +528,72 @@ T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T element) test) {
                                       padding: EdgeInsets.only(bottom: isMobile ? 10 : 20),
                                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                                         crossAxisCount: crossAxisCount,
-                                        crossAxisSpacing: isMobile ? 8 : 16,
-                                        mainAxisSpacing: isMobile ? 16 : 32,
-                                        mainAxisExtent: isMobile ? 270 : 290,
+                                        crossAxisSpacing: 16,
+                                        mainAxisSpacing: 16,
+                                        mainAxisExtent: 280, // Adjusted to prevent overflow
                                       ),
                                       itemCount: filteredGroups.length,
                                       itemBuilder: (context, index) {
                                         final group = filteredGroups[index];
-final studentCount = attendanceProvider.getGroupStudentCount(group.id);
-final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
+                                        final studentCount = attendanceProvider.getGroupStudentCount(group.id);
+                                        final bool isRangeSelected = _isRange;
+                                        final Map<String, int> dataForCard = {};
+                                        double rangePercent = 0.0;
 
-// 🔍 Находим запись с рассчитанным процентом за ВЕСЬ диапазон
-final groupAnalyticData = _groupAnalytics.firstWhere(
-    (data) => data['groupId'] == group.id,
-    orElse: () => {'percent': '0.0'},
-);
-final double rangePercent = double.tryParse(groupAnalyticData['percent'] ?? '0.0') ?? 0.0;
+                                        if (isRangeSelected) {
+                                          final groupAnalyticData = _groupAnalytics.firstWhere(
+                                            (data) => data['groupId'] == group.id,
+                                            orElse: () => {
+                                              'percent': '0.0',
+                                              'markedCount': 0,
+                                              'presentCount': 0,
+                                              'absentCount': 0,
+                                              'sickCount': 0,
+                                              'ithubCount': 0,
+                                            },
+                                          );
+                                          rangePercent = double.tryParse(groupAnalyticData['percent']?.toString() ?? '0.0') ?? 0.0;
+                                          dataForCard['markedCount'] = groupAnalyticData['markedCount'] as int? ?? 0;
+                                          dataForCard['presentCount'] = groupAnalyticData['presentCount'] as int? ?? 0;
+                                          dataForCard['absentCount'] = groupAnalyticData['absentCount'] as int? ?? 0;
+                                          dataForCard['sickCount'] = groupAnalyticData['sickCount'] as int? ?? 0;
+                                          dataForCard['ithubCount'] = groupAnalyticData['ithubCount'] as int? ?? 0;
+                                        } else {
+                                          final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
+                                          final int present = stats['present'] as int? ?? 0;
+                                          final int absent = stats['absent'] as int? ?? 0;
+                                          final int sick = stats['sick'] as int? ?? 0;
+                                          final int ithub = stats['ithub'] as int? ?? 0;
+                                          final int marked = stats['marked'] as int? ?? 0;
+                                          final double totalMarkedDouble = (marked > 0) ? marked.toDouble() : 1.0;
+                                          final int presentTotal = present + ithub;
+                                          rangePercent = (presentTotal / totalMarkedDouble * 100);
+                                          dataForCard['presentCount'] = present;
+                                          dataForCard['absentCount'] = absent;
+                                          dataForCard['sickCount'] = sick;
+                                          dataForCard['ithubCount'] = ithub;
+                                          dataForCard['markedCount'] = marked;
+                                        }
 
-return AnalyticGroupCard(
-  group: group,
-  studentCount: studentCount,
-  markedCount: stats['marked'] ?? 0,
-  presentCount: stats['present'] ?? 0,
-  absentCount: stats['absent'] ?? 0,
-  sickCount: stats['sick'] ?? 0,
-  ithubCount: stats['ithub'] ?? 0,
-  // 🚀 Используем рассчитанный процент за ВЕСЬ диапазон
-  attendancePercentage: rangePercent, 
-  onTap: () {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => AnalyticAttendanceScreen(group: group)));
-  },
-);
+                                        return AnalyticGroupCard(
+                                          group: group,
+                                          studentCount: studentCount,
+                                          markedCount: dataForCard['markedCount']!,
+                                          presentCount: dataForCard['presentCount']!,
+                                          absentCount: dataForCard['absentCount']!,
+                                          sickCount: dataForCard['sickCount']!,
+                                          ithubCount: dataForCard['ithubCount']!,
+                                          attendancePercentage: rangePercent,
+                                          isRangeSelected: isRangeSelected,
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => AnalyticAttendanceScreen(group: group),
+                                              ),
+                                            );
+                                          },
+                                        );
                                       },
                                     );
                                   },
@@ -575,12 +604,12 @@ return AnalyticGroupCard(
                               padding: EdgeInsets.all(isMobile ? 8.0 : 16.0),
                               children: [
                                 _buildStudentFilters(isMobile),
-                                 SizedBox(height: isMobile ? 8 : 16),
+                                SizedBox(height: isMobile ? 8 : 16),
                                 _buildStudentGroupChips(groupsProvider.groups, isMobile),
                                 SizedBox(height: isMobile ? 8 : 16),
                                 _buildStudentSort(isMobile),
-                                 SizedBox(height: isMobile ? 8 : 16),
-                                ..._buildStudentList(filteredStudents, isMobile),
+                                SizedBox(height: isMobile ? 8 : 16),
+                                ..._buildStudentList(filteredStudents, isMobile, groupsProvider),
                               ],
                             ),
                           ],
@@ -592,91 +621,86 @@ return AnalyticGroupCard(
     );
   }
 
-Widget _buildDateFilter(bool isMobile) {
+  Widget _buildDateFilter(bool isMobile) {
     final List<AcademicRange> fixedRanges = _generateFixedRanges();
-
-    // Форматируем текущий выбранный диапазон для отображения
     String dateLabel;
     if (_isRange) {
-        dateLabel = '${_startDate != null ? DateFormat('dd.MM.yyyy').format(_startDate!) : 'Выбрать'} - ${_endDate != null ? DateFormat('dd.MM.yyyy').format(_endDate!) : 'Выбрать'}';
+      dateLabel =
+          '${_startDate != null ? DateFormat('dd.MM.yyyy').format(_startDate!) : 'Выбрать'} - ${_endDate != null ? DateFormat('dd.MM.yyyy').format(_endDate!) : 'Выбрать'}';
     } else {
-        dateLabel = _startDate != null
-            ? DateFormat('dd.MM.yyyy').format(_startDate!)
-            : 'Выбрать дату';
+      dateLabel = _startDate != null ? DateFormat('dd.MM.yyyy').format(_startDate!) : 'Выбрать дату';
     }
 
-    // Ищем, соответствует ли текущий диапазон одному из фиксированных для отображения его метки
     String? currentPresetLabel;
     if (_startDate != null) {
-        // Вызов хелпера для поиска совпадения
-        final found = _firstWhereOrNull( 
-            fixedRanges,
-            (r) => r.startDate.year == _startDate!.year && 
-                   r.startDate.month == _startDate!.month && 
-                   r.startDate.day == _startDate!.day &&
-                   // Если это диапазон
-                   ((_isRange && r.endDate != null && r.endDate!.year == _endDate!.year && r.endDate!.month == _endDate!.month && r.endDate!.day == _endDate!.day) || 
-                   // Если это одиночный день
-                   (!_isRange && r.endDate == null)),
-        );
-        currentPresetLabel = found?.label;
+      final found = _firstWhereOrNull(
+        fixedRanges,
+        (r) =>
+            r.startDate.year == _startDate!.year &&
+            r.startDate.month == _startDate!.month &&
+            r.startDate.day == _startDate!.day &&
+            ((_isRange &&
+                    r.endDate != null &&
+                    r.endDate!.year == _endDate!.year &&
+                    r.endDate!.month == _endDate!.month &&
+                    r.endDate!.day == _endDate!.day) ||
+                (!_isRange && r.endDate == null)),
+      );
+      currentPresetLabel = found?.label;
     }
 
-
     return Padding(
-        padding: EdgeInsets.all(isMobile ? 8.0 : 16.0),
-        child: Row(
-            children: [
-                Expanded(
-                    child: ElevatedButton.icon(
-                        icon: Icon(Icons.calendar_today, size: isMobile ? 16 : 20),
-                        label: Text(
-                            currentPresetLabel ?? dateLabel, // Показать метку пресета или формат dd.MM.yyyy
-                            style: TextStyle(fontSize: isMobile ? 12 : 14),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: isMobile ? 8 : 12),
-                            backgroundColor: Colors.blue.shade600,
-                            foregroundColor: Colors.white,
-                        ),
-                        // Ручной выбор: вызываем Range Picker для диапазона
-                        onPressed: () async {
-                            final pickedRange = await showDateRangePicker(
-                                context: context,
-                                firstDate: DateTime(2000),
-                                lastDate: DateTime.now(),
-                                locale: const Locale('ru', 'RU'), 
-                            );
-                            if (pickedRange != null) {
-                                final isSingleDay = pickedRange.start.isAtSameMomentAs(pickedRange.end);
-                                _setFilterRange(
-                                    manualStart: pickedRange.start,
-                                    manualEnd: isSingleDay ? null : pickedRange.end,
-                                );
-                            }
-                        },
-                    ),
-                ),
-                const SizedBox(width: 8),
-                // Выбор фиксированных пресетов
-                PopupMenuButton<AcademicRange>(
-                    icon: Icon(Icons.filter_list, size: isMobile ? 20 : 24),
-                    onSelected: (AcademicRange range) {
-                        _setFilterRange(fixedRange: range);
-                    },
-                    itemBuilder: (BuildContext context) {
-                        return fixedRanges.map((AcademicRange range) {
-                            return PopupMenuItem<AcademicRange>(
-                                value: range,
-                                child: Text(range.label),
-                            );
-                        }).toList();
-                    },
-                ),
-            ],
-        ),
+      padding: EdgeInsets.all(isMobile ? 8.0 : 16.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: Icon(Icons.calendar_today, size: isMobile ? 16 : 20),
+              label: Text(
+                currentPresetLabel ?? dateLabel,
+                style: TextStyle(fontSize: isMobile ? 14 : 14, fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16, vertical: isMobile ? 8 : 12),
+                backgroundColor: Colors.blue.shade600,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final pickedRange = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now(),
+                  locale: const Locale('ru', 'RU'),
+                );
+                if (pickedRange != null) {
+                  final isSingleDay = pickedRange.start.isAtSameMomentAs(pickedRange.end);
+                  _setFilterRange(
+                    manualStart: pickedRange.start,
+                    manualEnd: isSingleDay ? null : pickedRange.end,
+                  );
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          PopupMenuButton<AcademicRange>(
+            icon: Icon(Icons.filter_list, size: isMobile ? 20 : 24),
+            onSelected: (AcademicRange range) {
+              _setFilterRange(fixedRange: range);
+            },
+            itemBuilder: (BuildContext context) {
+              return fixedRanges.map((AcademicRange range) {
+                return PopupMenuItem<AcademicRange>(
+                  value: range,
+                  child: Text(range.label),
+                );
+              }).toList();
+            },
+          ),
+        ],
+      ),
     );
-}
+  }
 
   List<Widget> _buildGroupList(
     List<Group> filteredGroups,
@@ -699,20 +723,144 @@ Widget _buildDateFilter(bool isMobile) {
 
     return filteredGroups.map((group) {
       final studentCount = attendanceProvider.getGroupStudentCount(group.id);
-      final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
+      final bool isRangeSelected = _isRange;
+      final Map<String, int> dataForCard = {};
+      double rangePercent = 0.0;
+
+      if (isRangeSelected) {
+        final groupAnalyticData = _groupAnalytics.firstWhere(
+          (data) => data['groupId'] == group.id,
+          orElse: () => {
+            'percent': '0.0',
+            'markedCount': 0,
+            'presentCount': 0,
+            'absentCount': 0,
+            'sickCount': 0,
+            'ithubCount': 0,
+          },
+        );
+        rangePercent = double.tryParse(groupAnalyticData['percent']?.toString() ?? '0.0') ?? 0.0;
+        dataForCard['markedCount'] = groupAnalyticData['markedCount'] as int? ?? 0;
+        dataForCard['presentCount'] = groupAnalyticData['presentCount'] as int? ?? 0;
+        dataForCard['absentCount'] = groupAnalyticData['absentCount'] as int? ?? 0;
+        dataForCard['sickCount'] = groupAnalyticData['sickCount'] as int? ?? 0;
+        dataForCard['ithubCount'] = groupAnalyticData['ithubCount'] as int? ?? 0;
+      } else {
+        final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
+        final int present = stats['present'] as int? ?? 0;
+        final int absent = stats['absent'] as int? ?? 0;
+        final int sick = stats['sick'] as int? ?? 0;
+        final int ithub = stats['ithub'] as int? ?? 0;
+        final int marked = stats['marked'] as int? ?? 0;
+        final double totalMarkedDouble = (marked > 0) ? marked.toDouble() : 1.0;
+        final int presentTotal = present + ithub;
+        rangePercent = (presentTotal / totalMarkedDouble * 100);
+        dataForCard['presentCount'] = present;
+        dataForCard['absentCount'] = absent;
+        dataForCard['sickCount'] = sick;
+        dataForCard['ithubCount'] = ithub;
+        dataForCard['markedCount'] = marked;
+      }
 
       return Padding(
         padding: const EdgeInsets.only(bottom: 16.0),
         child: AnalyticGroupCard(
           group: group,
           studentCount: studentCount,
-          markedCount: stats['marked'] ?? 0,
-          presentCount: stats['present'] ?? 0,
-          absentCount: stats['absent'] ?? 0,
-          sickCount: stats['sick'] ?? 0,
-          ithubCount: stats['ithub'] ?? 0,
-          attendancePercentage: (stats['marked'] ?? 0) > 0 ? (((stats['present'] ?? 0) + (stats['ithub'] ?? 0)) / (stats['marked'] ?? 1) * 100) : 0.0,
-          onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => AnalyticAttendanceScreen(group: group)));} 
+          markedCount: dataForCard['markedCount']!,
+          presentCount: dataForCard['presentCount']!,
+          absentCount: dataForCard['absentCount']!,
+          sickCount: dataForCard['sickCount']!,
+          ithubCount: dataForCard['ithubCount']!,
+          attendancePercentage: rangePercent,
+          isRangeSelected: isRangeSelected,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AnalyticAttendanceScreen(group: group),
+              ),
+            );
+          },
+        ),
+      );
+    }).toList();
+  }
+
+  List<Widget> _buildStudentList(
+    List<Map<String, dynamic>> filteredStudents,
+    bool isMobile,
+    GroupsProvider groupsProvider,
+  ) {
+    if (filteredStudents.isEmpty) {
+      return [
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Студенты не найдены',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ),
+        )
+      ];
+    }
+
+    return filteredStudents.map((data) {
+      final percent = double.tryParse(data['percent'].toString()) ?? 0.0;
+      final color = _getPercentColor(percent);
+      final String groupName = data['groupName'] ?? 'Группа не указана';
+
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: Card(
+          margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Text(
+              data['fullName'] ?? 'Неизвестный студент',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: isMobile ? 16 : 18,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Группа: $groupName',
+                  style: TextStyle(
+                    fontSize: isMobile ? 12 : 14,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: percent / 100,
+                  color: color,
+                  backgroundColor: Colors.grey.shade200,
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ],
+            ),
+            trailing: Text(
+              '${percent.toStringAsFixed(1)}%',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: color,
+                fontSize: isMobile ? 16 : 18,
+              ),
+            ),
+          ),
         ),
       );
     }).toList();
@@ -792,72 +940,91 @@ Widget _buildDateFilter(bool isMobile) {
     );
   }
 
-  Widget _buildStudentSort(bool isMobile) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text('Сортировка по % посещаемости', style: TextStyle(fontSize: 14)),
-        Row(
-          children: [
-            IconButton(
-              icon: Icon(Icons.arrow_upward, color: _studentSortOrder == SortOrder.ascending ? Colors.blue : Colors.grey),
-              onPressed: () {
-                setState(() {
-                  _studentSortOrder = SortOrder.ascending;
-                  _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder);
-                });
-              },
-            ),
-            IconButton(
-              icon: Icon(Icons.arrow_downward, color: _studentSortOrder == SortOrder.descending ? Colors.blue : Colors.grey),
-              onPressed: () {
-                setState(() {
-                  _studentSortOrder = SortOrder.descending;
-                  _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder);
-                });
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+Widget _buildStudentSort(bool isMobile) {
+  // Определяем цвета для состояния Ascending (По возрастанию)
+  final ascActive = _studentSortOrder == SortOrder.ascending;
+  final ascColor = ascActive ? Colors.blue : Colors.grey.shade600;
 
-  List<Widget> _buildStudentList(List<Map<String, dynamic>> filteredStudents, bool isMobile) {
-    if (filteredStudents.isEmpty) {
-      return [
-        const Center(
-          child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Студенты не найдены',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          ),
-        )
-      ];
-    }
+  // Определяем цвета для состояния Descending (По убыванию)
+  final descActive = _studentSortOrder == SortOrder.descending;
+  final descColor = descActive ? Colors.blue : Colors.grey.shade600;
 
-    return filteredStudents.map((data) {
-      final percent = double.parse(data['percent']);
-      final color = _getPercentColor(percent);
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8.0),
-        child: Card(
-          child: ListTile(
-            title: Text(data['fullName']),
-            subtitle: LinearProgressIndicator(
-              value: percent / 100,
-              color: color,
-              backgroundColor: Colors.grey.shade200,
-              minHeight: 6,
-            ),
-            trailing: Text('${data['percent']}%', style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-          ),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Сортировка по % посещаемости',
+        style: TextStyle(
+          fontSize: isMobile ? 16 : 18, 
+          fontWeight: FontWeight.w600,
         ),
-      );
-    }).toList();
-  }
+      ),
+      const SizedBox(height: 4),
+      Text(
+        _studentSortOrder == SortOrder.ascending
+            ? 'Сейчас выбрано: по возрастанию'
+            : 'Сейчас выбрано: по убыванию',
+        style: TextStyle(
+          fontSize: isMobile ? 12 : 14, 
+          color: Colors.grey.shade600,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          // 1. Кнопка "По возрастанию" (Icons.arrow_upward)
+          TextButton.icon(
+            icon: Icon(
+              Icons.arrow_upward,
+              // Используем ascColor для иконки
+              color: ascColor, 
+              size: isMobile ? 22 : 28, 
+            ),
+            label: Text(
+              'По возрастанию',
+              style: TextStyle(
+                fontSize: isMobile ? 14 : 16, 
+                // Используем ascColor для текста
+                color: ascColor, 
+              ),
+            ),
+            onPressed: () {
+              setState(() {
+                _studentSortOrder = SortOrder.ascending;
+                _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder); 
+              });
+            },
+          ),
+          SizedBox(width: isMobile ? 8 : 12), // Адаптивный отступ
+          
+          // 2. Кнопка "По убыванию" (Icons.arrow_downward)
+          TextButton.icon(
+            icon: Icon(
+              Icons.arrow_downward,
+              // Используем descColor для иконки
+              color: descColor,
+              size: isMobile ? 22 : 28, 
+            ),
+            label: Text(
+              'По убыванию',
+              style: TextStyle(
+                fontSize: isMobile ? 14 : 16, 
+                // Используем descColor для текста
+                color: descColor,
+              ),
+            ),
+            onPressed: () {
+              setState(() {
+                _studentSortOrder = SortOrder.descending;
+                _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder);
+              });
+            },
+          ),
+        ],
+      ),
+    ],
+  );
+}
 
   Widget _buildSkeletonLoader() {
     return SingleChildScrollView(
