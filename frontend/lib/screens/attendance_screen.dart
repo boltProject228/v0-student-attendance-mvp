@@ -10,7 +10,6 @@ import '../widgets/summary_bar.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final Group group;
-
   const AttendanceScreen({super.key, required this.group});
 
   @override
@@ -34,30 +33,43 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Future<void> _loadExistingAttendances() async {
     final provider = Provider.of<AttendanceProvider>(context, listen: false);
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    await provider.fetchAttendance(groupId: widget.group.id, date: today);
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    
+    // 🚀 Принудительное обновление для получения актуальных данных перед отображением
+    await provider.fetchAttendance(groupId: widget.group.id, date: today, forceRefresh: true);
+    
     final attendances = await provider.getAttendances(widget.group.id, today);
+    
     DateTime? maxUpdatedAt;
     Attendance? lastAttendance;
 
     for (var att in provider.attendanceList.where((a) =>
         a.groupId == widget.group.id &&
-        a.date.toIso8601String().split('T')[0] == today)) {
+        DateFormat('yyyy-MM-dd').format(a.date) == today)) {
       if (maxUpdatedAt == null || att.updatedAt.isAfter(maxUpdatedAt)) {
         maxUpdatedAt = att.updatedAt;
         lastAttendance = att;
       }
     }
 
+    if (!mounted) return;
+
     setState(() {
+      _statuses.clear();
+      _attIds.clear();
       for (var entry in attendances.entries) {
         _statuses[entry.key] = entry.value['status']!;
         _attIds[entry.key] = entry.value['id']!;
       }
       if (lastAttendance != null) {
-        lastUpdatedByName = lastAttendance.updatedByName;
+        // ✅ ИСПРАВЛЕНИЕ: Используем updatedByName для получения ФИО
+        lastUpdatedByName = lastAttendance.updatedByName; 
         lastUpdatedByRole = lastAttendance.updatedByRole;
         lastUpdatedAt = lastAttendance.updatedAt;
+      } else {
+        lastUpdatedByName = null;
+        lastUpdatedByRole = null;
+        lastUpdatedAt = null;
       }
     });
   }
@@ -70,7 +82,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       'ithub': 0,
       'unmarked': 0,
     };
-
     final provider = Provider.of<AttendanceProvider>(context, listen: false);
     final students =
         provider.students.where((s) => s.groupId == widget.group.id).toList();
@@ -79,7 +90,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       final status = _statuses[student.id] ?? 'unmarked';
       stats[status] = (stats[status] ?? 0) + 1;
     }
-
     return stats;
   }
 
@@ -216,6 +226,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Future<void> _saveAttendance() async {
     final provider = Provider.of<AttendanceProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final today = DateTime.now(); // Используем DateTime.now() для проверки дня недели
+
     if (authProvider.user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -224,18 +236,36 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       );
       return;
     }
-    final nowIso = DateTime.now().toIso8601String();
+    
+    // 🛑 Блокировка сохранения в выходные дни (Суббота: 6, Воскресенье: 7)
+    if (today.weekday == DateTime.saturday || today.weekday == DateTime.sunday) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Нельзя редактировать отметки в выходные дни (суббота и воскресенье).'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return; // Прерываем выполнение
+    }
+
+    // Нормализация даты к началу дня UTC для корректного сохранения в базе
+    final dateUtc = DateTime.utc(today.year, today.month, today.day).toIso8601String(); 
+
     bool success = true;
 
     for (var entry in _statuses.entries) {
       String studentId = entry.key;
       String status = entry.value;
+      
       var data = {
         'studentId': studentId,
         'groupId': widget.group.id,
-        'date': nowIso,
+        'date': dateUtc, // Используем нормализованную UTC дату
         'updatedBy': authProvider.user!.id,
       };
+
       String? attId = _attIds[studentId];
 
       if (status == 'unmarked' || status.isEmpty) {
@@ -252,8 +282,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           if (!await provider.updateAttendance(attId, data)) success = false;
         } else {
           String? newId = await provider.createAttendance(data);
-          if (newId == null) success = false;
-          else {
+          if (newId == null) {
+            success = false;
+          } else {
             setState(() {
               _attIds[studentId] = newId;
             });
@@ -262,9 +293,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       }
     }
 
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    await provider.fetchAttendance(groupId: widget.group.id, date: today);
-
+    // Обновляем UI после сохранения, чтобы получить актуальные данные о последнем обновлении
     await _loadExistingAttendances();
 
     if (mounted) {
@@ -276,7 +305,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
-      if (success) Navigator.pop(context, true);
+      
+      // Возвращаем `true` для сигнализации родительскому экрану о необходимости обновления аналитики
+      if (success) Navigator.pop(context, true); 
     }
   }
 }

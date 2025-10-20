@@ -6,6 +6,8 @@ class AttendanceTile extends StatelessWidget {
   final String status;
   final Function(String) onStatusChange;
   final bool isMobile;
+  // NOTE: Для полноценного редактирования истории, сюда должна передаваться дата,
+  // которую редактируем, но для текущей задачи используем DateTime.now()
 
   const AttendanceTile({
     super.key,
@@ -15,6 +17,14 @@ class AttendanceTile extends StatelessWidget {
     required this.onStatusChange,
     this.isMobile = false,
   });
+
+  // --- КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: ПРОВЕРКА ДНЯ НЕДЕЛИ ---
+  bool _isWeekday(DateTime date) {
+    final dayOfWeek = date.weekday;
+    // Monday (1) through Friday (5)
+    return dayOfWeek >= DateTime.monday && dayOfWeek <= DateTime.friday;
+  }
+  // --------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -115,8 +125,10 @@ class AttendanceTile extends StatelessWidget {
 
   Widget _statusButton(String value, String label, Color color) {
     final isSelected = status == value;
+    final bool isEditable = _isWeekday(DateTime.now()); // Проверка текущего дня
+
     return GestureDetector(
-      onTap: () => onStatusChange(value),
+      onTap: isEditable ? () => onStatusChange(value) : null, // Отключаем onTap, если не будний день
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 10.0, vertical: isMobile ? 4.0 : 6.0),
@@ -130,7 +142,10 @@ class AttendanceTile extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black87,
+            // Цвет текста серый, если редактирование запрещено
+            color: isEditable
+                ? (isSelected ? Colors.white : Colors.black87)
+                : Colors.grey,
             fontWeight: FontWeight.w600,
             fontSize: isMobile ? 11 : 12,
           ),

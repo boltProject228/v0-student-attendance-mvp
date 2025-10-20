@@ -8,7 +8,7 @@ class AnalyticGroupCard extends StatelessWidget {
   final int absentCount;
   final int sickCount;
   final int ithubCount;
-  final int markedCount;
+  final int markedCount; // Входящее значение может быть неверным, поэтому пересчитаем
   final double? attendancePercentage;
   final VoidCallback onTap;
   final bool isRangeSelected;
@@ -36,15 +36,33 @@ class AnalyticGroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double displayPercent = attendancePercentage ?? 0.0;
-
-    final int totalMarked = presentCount + absentCount + sickCount + ithubCount;
-    final double totalMarkedDouble = totalMarked == 0 ? 1.0 : totalMarked.toDouble();
-    final double presentPercent = (presentCount / totalMarkedDouble) * 100;
-    final double absentPercent = (absentCount / totalMarkedDouble) * 100;
-    final double sickPercent = (sickCount / totalMarkedDouble) * 100;
-    final double ithubPercent = (ithubCount / totalMarkedDouble) * 100;
-
+    // showCounts будет true, если выбран один день (!isRangeSelected)
     final bool showCounts = !isRangeSelected;
+
+    // --- ЛОГИКА РАСЧЕТА ПРОЦЕНТОВ ---
+    final int totalMarkedForPercent = presentCount + absentCount + ithubCount;
+    final double totalMarkedDoubleForPercent = totalMarkedForPercent == 0 ? 1.0 : totalMarkedForPercent.toDouble();
+
+    final double presentPercent = ((presentCount + ithubCount) / totalMarkedDoubleForPercent) * 100;
+    final double absentPercent = (absentCount / totalMarkedDoubleForPercent) * 100;
+
+    final double sickTotal = (totalMarkedForPercent + sickCount).toDouble();
+    final double sickPercent = sickTotal == 0 ? 0.0 : (sickCount / sickTotal) * 100;
+
+    final double ithubPercent = (ithubCount / totalMarkedDoubleForPercent) * 100;
+    // ------------------------------------
+    
+    // 💡 ЛОГИКА ОГРАНИЧЕНИЯ: Ограничиваем общее количество отмеченных студентов (сумма уникальных статусов)
+    // значением studentCount только в режиме "Сегодня" (showCounts = true).
+    int markedStudentsTotal = presentCount + absentCount + sickCount + ithubCount;
+    
+    final int actualMarkedCount = showCounts 
+        ? markedStudentsTotal.clamp(0, studentCount) // Ограничиваем сверху studentCount (для 1 дня)
+        : markedStudentsTotal; // В режиме диапазона - это общая сумма всех отметок (слоты)
+
+    // Расчет не отмеченных студентов, используя скорректированный actualMarkedCount.
+    // При isRangeSelected=true, actualMarkedCount будет большим числом, и unmarkedCount будет 0.
+    final int unmarkedCount = (studentCount - actualMarkedCount).clamp(0, studentCount);
     
     // Используйте высоту, которая у вас задана в mainAxisExtent (например, 303.0)
     const cardDesiredHeight = 303.0; 
@@ -53,7 +71,7 @@ class AnalyticGroupCard extends StatelessWidget {
       builder: (context, constraints) {
         final cardWidth = constraints.maxWidth;
 
-        // 📏 Адаптивные размеры шрифтов (без изменений)
+        // 📏 Адаптивные размеры шрифтов
         final double titleFontSize = (cardWidth * 0.055).clamp(14, 20);
         final double subtitleFontSize = (cardWidth * 0.04).clamp(11, 16);
         final double labelFontSize = (cardWidth * 0.035).clamp(9, 14);
@@ -79,7 +97,6 @@ class AnalyticGroupCard extends StatelessWidget {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                // ❌ УДАЛЕНО: mainAxisSize: MainAxisSize.min. Нужно для Expanded.
                 children: [
                   // Header
                   Container(
@@ -114,7 +131,8 @@ class AnalyticGroupCard extends StatelessWidget {
                             const Icon(Icons.people_alt_rounded, size: 14, color: Colors.white70),
                             const SizedBox(width: 4),
                             Text(
-                              '$studentCount студентов',
+                              // Student count всегда статичен и равен studentCount
+                              '$studentCount студентов', 
                               style: TextStyle(
                                 fontSize: subtitleFontSize,
                                 color: Colors.white70,
@@ -128,27 +146,37 @@ class AnalyticGroupCard extends StatelessWidget {
                   ),
                   
                   // 📊 Statistics
-                  Expanded( // 🔑 ИЗМЕНЕНИЕ: Блок статистики занимает ВСЁ СВОБОДНОЕ МЕСТО!
+                  Expanded( 
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), 
                       child: Column(
-                        // 🔑 ИЗМЕНЕНИЕ: Равномерно распределяет три строки статистики
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly, 
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _buildStatsRow([
-                            _buildStatusText("Присутствующие", presentCount, Colors.green, labelFontSize, mainValueFontSize, presentPercent, showCounts),
+                            // В режиме "Сегодня" показываем только presentCount. Для диапазона - сумма.
+                            _buildStatusText(
+                              "Присутствовали", 
+                              showCounts ? presentCount : presentCount + ithubCount, 
+                              Colors.green, labelFontSize, mainValueFontSize, 
+                              presentPercent, 
+                              showCounts
+                            ),
                             _buildStatusText("Отсутствующие", absentCount, Colors.red, labelFontSize, mainValueFontSize, absentPercent, showCounts),
                           ]),
-                          // ❌ УДАЛЕНЫ SizedBox(height: 12), т.к. используется spaceEvenly
                           _buildStatsRow([
+                            // Больничный. Счетчик скрыт в режиме диапазона.
                             _buildStatusText("Больничный", sickCount, Colors.orange, labelFontSize, mainValueFontSize, sickPercent, showCounts),
-                            _buildStatusText("IT-hub", ithubCount, Colors.purple, labelFontSize, mainValueFontSize, ithubPercent, showCounts),
+                            // IT-hub. Счетчик скрыт в режиме диапазона.
+                            _buildStatusText("IT-hub (отдельно)", ithubCount, Colors.purple, labelFontSize, mainValueFontSize, ithubPercent, showCounts),
                           ]),
-                          // ❌ УДАЛЕНЫ SizedBox(height: 12)
+                          
+                          // ❗ ИСПРАВЛЕНИЕ: Этот ряд всегда отображается (без if (showCounts))
                           _buildStatsRow([
-                            _buildStatusText("Отмечено", markedCount, Colors.blue, labelFontSize, mainValueFontSize, -1, true),
-                            _buildStatusText("Не отмечено", studentCount - markedCount, Colors.grey, labelFontSize, mainValueFontSize, -1, true),
+                            // showCount = true, чтобы счетчик всегда отображался
+                            _buildStatusText("Отмечено", actualMarkedCount, Colors.blue, labelFontSize, mainValueFontSize, -1, true),
+                            // showCount = true, чтобы счетчик всегда отображался
+                            _buildStatusText("Не отмечено", unmarkedCount, Colors.grey, labelFontSize, mainValueFontSize, -1, true),
                           ]),
                         ],
                       ),
@@ -156,7 +184,6 @@ class AnalyticGroupCard extends StatelessWidget {
                   ),
                   
                   // 🎯 Footer Content
-                  // ❌ УДАЛЕНО: const Spacer(), (Виновник "пропасти")
                   Container(
                     padding: const EdgeInsets.only(left: 12, right: 12, top: 8, bottom: 8), 
                     decoration: BoxDecoration(
@@ -248,6 +275,7 @@ class AnalyticGroupCard extends StatelessWidget {
             
             if (showPercentage)
               Padding(
+                // Логика отображения процентов: если счетчик показан, то процент в скобках и меньше, иначе - крупно.
                 padding: EdgeInsets.only(left: showCount ? 6 : 0), 
                 child: Text(
                   showCount

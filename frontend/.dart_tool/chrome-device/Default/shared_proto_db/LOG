@@ -1,15 +1,18 @@
-2025/10/19-11:45:21.896 5d38 Reusing MANIFEST C:\Users\masal\AppData\Local\Temp\flutter_tools.ad168fbe\flutter_tools_chrome_device.a52443c8\Default\shared_proto_db/MANIFEST-000001
-2025/10/19-11:45:22.059 5d38 Recovering log #26
-2025/10/19-11:45:22.060 5d38 Reusing old log C:\Users\masal\AppData\Local\Temp\flutter_tools.ad168fbe\flutter_tools_chrome_device.a52443c8\Default\shared_proto_db/000026.log 
-2025/10/19-11:45:22.060 5d38 Delete type=0 #3
-2025/10/19-11:45:22.060 5d38 Delete type=0 #4
-2025/10/19-11:45:22.061 5d38 Delete type=0 #7
-2025/10/19-11:45:22.061 5d38 Delete type=2 #8
-2025/10/19-11:45:22.061 5d38 Delete type=0 #10
-2025/10/19-11:45:22.061 5d38 Delete type=2 #11
-2025/10/19-11:45:22.061 5d38 Delete type=0 #13
-2025/10/19-11:45:22.061 5d38 Delete type=2 #14
-2025/10/19-11:45:22.061 5d38 Delete type=0 #16
-2025/10/19-11:45:22.061 5d38 Delete type=2 #17
-2025/10/19-11:45:22.061 5d38 Delete type=0 #19
-2025/10/19-11:45:22.061 5d38 Delete type=0 #23
+2025/10/20-02:26:11.770 1a90 Reusing MANIFEST C:\Users\masal\AppData\Local\Temp\flutter_tools.f1d3dbad\flutter_tools_chrome_device.b15bc629\Default\shared_proto_db/MANIFEST-000001
+2025/10/20-02:26:11.771 1a90 Recovering log #26
+2025/10/20-02:26:11.772 1a90 Reusing old log C:\Users\masal\AppData\Local\Temp\flutter_tools.f1d3dbad\flutter_tools_chrome_device.b15bc629\Default\shared_proto_db/000026.log 
+2025/10/20-02:26:11.772 1a90 Delete type=0 #3
+2025/10/20-02:26:11.772 1a90 Delete type=0 #4
+2025/10/20-02:26:11.772 1a90 Delete type=0 #7
+2025/10/20-02:26:11.772 1a90 Delete type=2 #8
+2025/10/20-02:26:11.772 1a90 Delete type=0 #10
+2025/10/20-02:26:11.772 1a90 Delete type=2 #11
+2025/10/20-02:26:11.772 1a90 Delete type=0 #13
+2025/10/20-02:26:11.772 1a90 Delete type=2 #14
+2025/10/20-02:26:11.772 1a90 Delete type=0 #16
+2025/10/20-02:26:11.772 1a90 Delete type=2 #17
+2025/10/20-02:26:11.772 1a90 Delete type=0 #19
+2025/10/20-02:26:11.772 1a90 Delete type=0 #23
+2025/10/20-02:26:41.959 1b1c Level-0 table #30: started
+2025/10/20-02:26:41.964 1b1c Level-0 table #30: 134098 bytes OK
+2025/10/20-02:26:41.967 1b1c Delete type=0 #26

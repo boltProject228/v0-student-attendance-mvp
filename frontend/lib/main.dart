@@ -169,6 +169,7 @@ Widget _buildScreen(String route, dynamic args) {
     case '/admin':
       return const AdminScreen();
     case '/attendance':
+      // Предполагаем, что аргумент Group не null, если мы здесь
       return AttendanceScreen(group: args as Group);
     case '/analytics':
       return const AnalyticsScreen();

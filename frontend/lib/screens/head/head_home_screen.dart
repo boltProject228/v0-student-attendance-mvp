@@ -138,29 +138,6 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
                         }),
                         onCourseChanged: (value) => setState(() => _selectedCourse = value),
                       ),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.calendar_today, size: 20),
-                        label: Text(DateFormat('dd.MM.yyyy').format(_selectedDate)),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          backgroundColor: Colors.blue.shade600,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedDate,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now(),
-                          );
-                          if (picked != null) {
-                            setState(() => _selectedDate = picked);
-                            // Refresh stats for new date
-                            await Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance(date: dateStr);
-                          }
-                        },
-                      ),
                     ],
                   )
                 else

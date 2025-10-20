@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
@@ -87,7 +86,10 @@ class AuthProvider with ChangeNotifier {
     final cachedUser = HiveService.getUser();
     if (cachedUser != null) {
       _user = cachedUser;
-      notifyListeners();
+      
+      // ✅ ИСПРАВЛЕНИЕ: Отложить вызов notifyListeners до завершения текущего build-цикла
+      Future.microtask(() => notifyListeners()); 
+      
       return true;
     }
 
@@ -96,11 +98,14 @@ class AuthProvider with ChangeNotifier {
       final user = User.fromJson(userData);
       await HiveService.saveUser(user);
       _user = user;
-      notifyListeners();
+      
+      // ✅ ИСПРАВЛЕНИЕ: Отложить вызов notifyListeners до завершения текущего build-цикла
+      Future.microtask(() => notifyListeners());
+
       return true;
     } catch (e) {
       await HiveService.clearAll();
       return false;
     }
-  }
+  } 
 }

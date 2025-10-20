@@ -22,7 +22,7 @@ class AnalyticsProvider with ChangeNotifier {
     notifyListeners();
 
     // Check cache
-    final cacheKey = 'analytics_${groupId}_${startDate}_${endDate}_${period}';
+    final cacheKey = 'analytics_${groupId}_${startDate}_${endDate}_$period';
     final cachedData = HiveService.getGeneric<Map<String, dynamic>>(cacheKey);
     if (cachedData != null) {
       _groupAnalytics = cachedData;

@@ -1,3 +1,5 @@
+// frontend/lib/models/attendance.dart (Updated with new getters)
+
 import 'package:hive/hive.dart';
 
 part 'attendance.g.dart';
@@ -102,5 +104,10 @@ class Attendance {
   bool get isAbsent => status == 'absent';
   bool get isSick => status == 'sick';
   bool get isIThub => status == 'ithub';
-  bool get isAttended => isPresent || isIThub; // New getter for analytics
+  
+  // Посещено: Присутствует или IThub
+  bool get isAttended => isPresent || isIThub; 
+
+  // 🔑 НОВЫЙ ГЕТТЕР: Статус, исключаемый из расчета общего числа занятий.
+  bool get isExcludedFromTotal => isSick; 
 }

@@ -38,10 +38,11 @@ class AnalyticSummaryBar extends StatelessWidget {
           Wrap(
             spacing: 8,
             children: [
-              _chip(Colors.green, 'Присутствует $present'),
+              // --- ИЗМЕНЕНИЕ: Объединены present и ithub в "Посетило" ---
+              _chip(Colors.green, 'Посетило ${present + ithub}'),
+              // ---------------------------------------------------------
               _chip(Colors.red, 'Отсутствует $absent'),
               _chip(Colors.orange, 'Больничный $sick'),
-              _chip(Colors.purple, 'IT-hub $ithub'),
               _chip(Colors.grey, 'Не отмечено $unmarked'),
             ],
           ),

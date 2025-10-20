@@ -84,10 +84,14 @@ class AnalyticsAttendanceTile extends StatelessWidget {
                 ],
               ),
             const SizedBox(height: 8),
+            // --- ИЗМЕНЕНИЕ: Добавлены Tooltip к чипам последовательности ---
             Wrap(
               spacing: 4,
               runSpacing: 4,
-              children: statusSequence.map((s) {
+              children: statusSequence.asMap().entries.map((entry) { // Используем asMap().entries для получения индекса
+                final index = entry.key;
+                final s = entry.value;
+
                 final color = s == 'present' || s == 'ithub'
                     ? Colors.green
                     : s == 'absent'
@@ -104,24 +108,29 @@ class AnalyticsAttendanceTile extends StatelessWidget {
                             : s == 'sick'
                                 ? 'Б'
                                 : 'Н';
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: color),
-                  ),
-                  child: Text(
-                    label,
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
+
+                return Tooltip(
+                  message: 'Статус за период ${index + 1}: $s', // Tooltip с номером периода
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: color),
+                    ),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 );
               }).toList(),
             ),
+            // -----------------------------------------------------------------
           ],
         ),
       ),

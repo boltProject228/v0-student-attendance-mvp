@@ -184,7 +184,7 @@ class _ExportScreenState extends State<ExportScreen> {
                                               onPrimary: Colors.white,
                                               surface: Colors.white,
                                               onSurface: Colors.black,
-                                            ), dialogTheme: DialogThemeData(backgroundColor: Colors.white),
+                                            ), dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
                                           ),
                                           child: child!,
                                         );

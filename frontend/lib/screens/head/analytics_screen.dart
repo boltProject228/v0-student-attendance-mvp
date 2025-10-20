@@ -121,8 +121,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Не удалось загрузить данные аналитики'),
+          SnackBar(
+            content: Text('Не удалось загрузить данные аналитики: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -147,32 +147,33 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     final totalGroups = groupsProvider.groups.length;
 
     double present = 0, absent = 0, sick = 0, ithub = 0;
-    int totalRecords = 0;
+    int totalRecords = 0; // Excludes sick
 
     final start = _isRange ? _startDate : _startDate;
     final end = _isRange ? _endDate : _startDate;
+    final dates = _isRange
+        ? _generateDateRange(start!, end!)
+        : [DateFormat('yyyy-MM-dd').format(start!)];
 
     for (var group in groupsProvider.groups) {
-      final dates = _isRange
-          ? _generateDateRange(start!, end!)
-          : [DateFormat('yyyy-MM-dd').format(start!)];
       for (var date in dates) {
         final stats = attendanceProvider.getGroupAttendanceStats(group.id, date);
-        present += (stats['present'] ?? 0) + (stats['ithub'] ?? 0);
+        present += (stats['present'] ?? 0) + (stats['ithub'] ?? 0); // Combine present and ithub
         absent += stats['absent'] ?? 0;
         sick += stats['sick'] ?? 0;
-        ithub += stats['ithub'] ?? 0;
-        totalRecords += stats['marked'] ?? 0;
+        totalRecords += (stats['present'] ?? 0) + (stats['absent'] ?? 0) + (stats['ithub'] ?? 0); // Exclude sick
       }
     }
 
     final total = totalRecords > 0 ? totalRecords : 1;
+    final totalWithSick = total + sick; // For sick percentage
+
     return {
       'totalStudents': totalStudents,
       'totalGroups': totalGroups,
-      'averagePresent': (present / total * 100).toStringAsFixed(1),
+      'averagePresent': ((present + ithub) / total * 100).toStringAsFixed(1),
       'averageAbsent': (absent / total * 100).toStringAsFixed(1),
-      'averageSick': (sick / total * 100).toStringAsFixed(1),
+      'averageSick': totalWithSick > 0 ? (sick / totalWithSick * 100).toStringAsFixed(1) : '0.0',
       'averageIThub': (ithub / total * 100).toStringAsFixed(1),
       'countPresent': present.toInt(),
       'countAbsent': absent.toInt(),
@@ -191,15 +192,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         ? _generateDateRange(start!, end!)
         : [DateFormat('yyyy-MM-dd').format(start!)];
 
-    final numDays = dates.length;
-
     List<Map<String, dynamic>> groupData = [];
     for (var group in groupsProvider.groups) {
       double present = 0;
       double absent = 0;
       double sick = 0;
       double ithub = 0;
-      int totalMarked = 0;
+      int totalMarked = 0; // Excludes sick
       int studentCount = attendanceProvider.getGroupStudentCount(group.id);
 
       for (var date in dates) {
@@ -208,10 +207,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         absent += stats['absent'] ?? 0;
         sick += stats['sick'] ?? 0;
         ithub += stats['ithub'] ?? 0;
-        totalMarked += stats['marked'] ?? 0;
+        totalMarked += (stats['present'] ?? 0) + (stats['absent'] ?? 0) + (stats['ithub'] ?? 0); // Exclude sick
       }
 
       final total = totalMarked > 0 ? totalMarked : 1;
+      final totalWithSick = total + sick; // For sick percentage
       final attendancePercent = ((present + ithub) / total * 100).toStringAsFixed(1);
 
       groupData.add({
@@ -226,7 +226,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         'sickCount': sick.toInt(),
         'ithubCount': ithub.toInt(),
         'markedCount': totalMarked,
-        'numDays': numDays,
+        'numDays': dates.length,
       });
     }
 
@@ -248,12 +248,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     List<Map<String, dynamic>> studentData = [];
     for (var student in attendanceProvider.students) {
       double present = 0;
-      int totalRecords = 0;
+      int totalRecords = 0; // Excludes sick
       for (var date in dates) {
         final attendance = attendanceProvider.getStudentAttendance(student.id, date);
-        if (attendance.status != 'unmarked') {
+        if (attendance.status != 'unmarked' && attendance.status != 'sick') {
           totalRecords++;
-          if (attendance.isPresent) present++;
+          if (attendance.status == 'present' || attendance.status == 'ithub') {
+            present++;
+          }
         }
       }
       final total = totalRecords > 0 ? totalRecords : 1;
@@ -276,7 +278,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
   List<String> _generateDateRange(DateTime start, DateTime end) {
     final dates = <String>[];
     for (var date = start; date.isBefore(end.add(const Duration(days: 1))); date = date.add(const Duration(days: 1))) {
-      dates.add(DateFormat('yyyy-MM-dd').format(date));
+      if (date.weekday >= DateTime.monday && date.weekday <= DateTime.friday) { // Only weekdays
+        dates.add(DateFormat('yyyy-MM-dd').format(date));
+      }
     }
     return dates;
   }
@@ -467,22 +471,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
     return Scaffold(
       appBar: AppBar(
-      title: Text(
-        'Аналитика посещаемости',
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: titleFontSize, // 👈 Адаптивный размер шрифта
+        title: Text(
+          'Аналитика посещаемости',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: titleFontSize,
+          ),
         ),
+        backgroundColor: Colors.white,
+        elevation: 2,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadAnalytics,
+          ),
+        ],
       ),
-      backgroundColor: Colors.white,
-      elevation: 2,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          onPressed: _loadAnalytics,
-        ),
-      ],
-    ),
       drawer: drawerWidget,
       body: RefreshIndicator(
         onRefresh: _loadAnalytics,
@@ -500,7 +504,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                         tabs: const [
                           Tab(text: 'Аналитика по группам'),
                           Tab(text: 'Аналитика по студентам'),
-                        
                         ],
                       ),
                       Expanded(
@@ -530,7 +533,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                                         crossAxisCount: crossAxisCount,
                                         crossAxisSpacing: 16,
                                         mainAxisSpacing: 16,
-                                        mainAxisExtent: 280, // Adjusted to prevent overflow
+                                        mainAxisExtent: 303, // Matches AnalyticGroupCard height
                                       ),
                                       itemCount: filteredGroups.length,
                                       itemBuilder: (context, index) {
@@ -560,11 +563,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                                           dataForCard['ithubCount'] = groupAnalyticData['ithubCount'] as int? ?? 0;
                                         } else {
                                           final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
-                                          final int present = stats['present'] as int? ?? 0;
-                                          final int absent = stats['absent'] as int? ?? 0;
-                                          final int sick = stats['sick'] as int? ?? 0;
-                                          final int ithub = stats['ithub'] as int? ?? 0;
-                                          final int marked = stats['marked'] as int? ?? 0;
+                                          final int present = stats['present'] ?? 0;
+                                          final int absent = stats['absent'] ?? 0;
+                                          final int sick = stats['sick'] ?? 0;
+                                          final int ithub = stats['ithub'] ?? 0;
+                                          final int marked = (present + absent + ithub); // Exclude sick
                                           final double totalMarkedDouble = (marked > 0) ? marked.toDouble() : 1.0;
                                           final int presentTotal = present + ithub;
                                           rangePercent = (presentTotal / totalMarkedDouble * 100);
@@ -585,14 +588,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                                           ithubCount: dataForCard['ithubCount']!,
                                           attendancePercentage: rangePercent,
                                           isRangeSelected: isRangeSelected,
-                                          onTap: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => AnalyticAttendanceScreen(group: group),
-                                              ),
-                                            );
-                                          },
+                                          onTap: () async {
+  final saved = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => AnalyticAttendanceScreen(group: group), // Changed to AttendanceScreen
+    ),
+  );
+  if (saved == true) {
+    await _loadAnalytics(); // Reload analytics if saved
+  }
+},
                                         );
                                       },
                                     );
@@ -700,91 +706,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         ],
       ),
     );
-  }
-
-  List<Widget> _buildGroupList(
-    List<Group> filteredGroups,
-    AttendanceProvider attendanceProvider,
-    String dateStr,
-  ) {
-    if (filteredGroups.isEmpty) {
-      return [
-        const Center(
-          child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Группы не найдены',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          ),
-        )
-      ];
-    }
-
-    return filteredGroups.map((group) {
-      final studentCount = attendanceProvider.getGroupStudentCount(group.id);
-      final bool isRangeSelected = _isRange;
-      final Map<String, int> dataForCard = {};
-      double rangePercent = 0.0;
-
-      if (isRangeSelected) {
-        final groupAnalyticData = _groupAnalytics.firstWhere(
-          (data) => data['groupId'] == group.id,
-          orElse: () => {
-            'percent': '0.0',
-            'markedCount': 0,
-            'presentCount': 0,
-            'absentCount': 0,
-            'sickCount': 0,
-            'ithubCount': 0,
-          },
-        );
-        rangePercent = double.tryParse(groupAnalyticData['percent']?.toString() ?? '0.0') ?? 0.0;
-        dataForCard['markedCount'] = groupAnalyticData['markedCount'] as int? ?? 0;
-        dataForCard['presentCount'] = groupAnalyticData['presentCount'] as int? ?? 0;
-        dataForCard['absentCount'] = groupAnalyticData['absentCount'] as int? ?? 0;
-        dataForCard['sickCount'] = groupAnalyticData['sickCount'] as int? ?? 0;
-        dataForCard['ithubCount'] = groupAnalyticData['ithubCount'] as int? ?? 0;
-      } else {
-        final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
-        final int present = stats['present'] as int? ?? 0;
-        final int absent = stats['absent'] as int? ?? 0;
-        final int sick = stats['sick'] as int? ?? 0;
-        final int ithub = stats['ithub'] as int? ?? 0;
-        final int marked = stats['marked'] as int? ?? 0;
-        final double totalMarkedDouble = (marked > 0) ? marked.toDouble() : 1.0;
-        final int presentTotal = present + ithub;
-        rangePercent = (presentTotal / totalMarkedDouble * 100);
-        dataForCard['presentCount'] = present;
-        dataForCard['absentCount'] = absent;
-        dataForCard['sickCount'] = sick;
-        dataForCard['ithubCount'] = ithub;
-        dataForCard['markedCount'] = marked;
-      }
-
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16.0),
-        child: AnalyticGroupCard(
-          group: group,
-          studentCount: studentCount,
-          markedCount: dataForCard['markedCount']!,
-          presentCount: dataForCard['presentCount']!,
-          absentCount: dataForCard['absentCount']!,
-          sickCount: dataForCard['sickCount']!,
-          ithubCount: dataForCard['ithubCount']!,
-          attendancePercentage: rangePercent,
-          isRangeSelected: isRangeSelected,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => AnalyticAttendanceScreen(group: group),
-              ),
-            );
-          },
-        ),
-      );
-    }).toList();
   }
 
   List<Widget> _buildStudentList(
@@ -940,91 +861,81 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     );
   }
 
-Widget _buildStudentSort(bool isMobile) {
-  // Определяем цвета для состояния Ascending (По возрастанию)
-  final ascActive = _studentSortOrder == SortOrder.ascending;
-  final ascColor = ascActive ? Colors.blue : Colors.grey.shade600;
+  Widget _buildStudentSort(bool isMobile) {
+    final ascActive = _studentSortOrder == SortOrder.ascending;
+    final ascColor = ascActive ? Colors.blue : Colors.grey.shade600;
+    final descActive = _studentSortOrder == SortOrder.descending;
+    final descColor = descActive ? Colors.blue : Colors.grey.shade600;
 
-  // Определяем цвета для состояния Descending (По убыванию)
-  final descActive = _studentSortOrder == SortOrder.descending;
-  final descColor = descActive ? Colors.blue : Colors.grey.shade600;
-
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        'Сортировка по % посещаемости',
-        style: TextStyle(
-          fontSize: isMobile ? 16 : 18, 
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      const SizedBox(height: 4),
-      Text(
-        _studentSortOrder == SortOrder.ascending
-            ? 'Сейчас выбрано: по возрастанию'
-            : 'Сейчас выбрано: по убыванию',
-        style: TextStyle(
-          fontSize: isMobile ? 12 : 14, 
-          color: Colors.grey.shade600,
-        ),
-      ),
-      const SizedBox(height: 8),
-      Row(
-        children: [
-          // 1. Кнопка "По возрастанию" (Icons.arrow_upward)
-          TextButton.icon(
-            icon: Icon(
-              Icons.arrow_upward,
-              // Используем ascColor для иконки
-              color: ascColor, 
-              size: isMobile ? 22 : 28, 
-            ),
-            label: Text(
-              'По возрастанию',
-              style: TextStyle(
-                fontSize: isMobile ? 14 : 16, 
-                // Используем ascColor для текста
-                color: ascColor, 
-              ),
-            ),
-            onPressed: () {
-              setState(() {
-                _studentSortOrder = SortOrder.ascending;
-                _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder); 
-              });
-            },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Сортировка по % посещаемости',
+          style: TextStyle(
+            fontSize: isMobile ? 16 : 18,
+            fontWeight: FontWeight.w600,
           ),
-          SizedBox(width: isMobile ? 8 : 12), // Адаптивный отступ
-          
-          // 2. Кнопка "По убыванию" (Icons.arrow_downward)
-          TextButton.icon(
-            icon: Icon(
-              Icons.arrow_downward,
-              // Используем descColor для иконки
-              color: descColor,
-              size: isMobile ? 22 : 28, 
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _studentSortOrder == SortOrder.ascending
+              ? 'Сейчас выбрано: по возрастанию'
+              : 'Сейчас выбрано: по убыванию',
+          style: TextStyle(
+            fontSize: isMobile ? 12 : 14,
+            color: Colors.grey.shade600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            TextButton.icon(
+              icon: Icon(
+                Icons.arrow_upward,
+                color: ascColor,
+                size: isMobile ? 22 : 28,
+              ),
+              label: Text(
+                'По возрастанию',
+                style: TextStyle(
+                  fontSize: isMobile ? 14 : 16,
+                  color: ascColor,
+                ),
+              ),
+              onPressed: () {
+                setState(() {
+                  _studentSortOrder = SortOrder.ascending;
+                  _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder);
+                });
+              },
             ),
-            label: Text(
-              'По убыванию',
-              style: TextStyle(
-                fontSize: isMobile ? 14 : 16, 
-                // Используем descColor для текста
+            SizedBox(width: isMobile ? 8 : 12),
+            TextButton.icon(
+              icon: Icon(
+                Icons.arrow_downward,
                 color: descColor,
+                size: isMobile ? 22 : 28,
               ),
+              label: Text(
+                'По убыванию',
+                style: TextStyle(
+                  fontSize: isMobile ? 14 : 16,
+                  color: descColor,
+                ),
+              ),
+              onPressed: () {
+                setState(() {
+                  _studentSortOrder = SortOrder.descending;
+                  _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder);
+                });
+              },
             ),
-            onPressed: () {
-              setState(() {
-                _studentSortOrder = SortOrder.descending;
-                _studentAnalytics = _sortAnalytics(_studentAnalytics, _studentSortOrder);
-              });
-            },
-          ),
-        ],
-      ),
-    ],
-  );
-}
+          ],
+        ),
+      ],
+    );
+  }
 
   Widget _buildSkeletonLoader() {
     return SingleChildScrollView(
@@ -1179,7 +1090,7 @@ class StudentFilters extends StatelessWidget {
         Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           style: const TextStyle(color: Colors.black),
           dropdownColor: Colors.white,
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black),
@@ -1305,7 +1216,7 @@ class GroupFilters extends StatelessWidget {
         Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           style: const TextStyle(color: Colors.black),
           dropdownColor: Colors.white,
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black),

@@ -165,7 +165,7 @@ class UsersTab extends StatelessWidget {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка удаления')),
+          const SnackBar(content: Text('Ошибка удаления')),
         );
       }
     }
@@ -224,7 +224,7 @@ class UsersTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: role,
+                    initialValue: role,
                     decoration: const InputDecoration(labelText: 'Роль'),
                     items: const [
                       DropdownMenuItem(value: 'teacher', child: Text('Преподаватель')),
@@ -458,7 +458,7 @@ class _GroupsTabState extends State<GroupsTab> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: specialty,
+                    initialValue: specialty,
                     decoration: const InputDecoration(labelText: 'Специальность'),
                     items: _specialties
                         .map((s) => DropdownMenuItem(value: s, child: Text(s)))
@@ -471,7 +471,7 @@ class _GroupsTabState extends State<GroupsTab> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<int>(
-                    value: course,
+                    initialValue: course,
                     decoration: const InputDecoration(labelText: 'Курс'),
                     items: _courses
                         .map((c) => DropdownMenuItem(value: c, child: Text('$c')))
@@ -684,7 +684,7 @@ class _StudentsTabState extends State<StudentsTab> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: groupId,
+                    initialValue: groupId,
                     decoration: const InputDecoration(labelText: 'Группа'),
                     items: adminProvider.groups
                         .map((g) => DropdownMenuItem(value: g.id, child: Text(g.name)))
@@ -881,7 +881,7 @@ class _UserTileState extends State<UserTile> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: role,
+                  initialValue: role,
                   decoration: const InputDecoration(labelText: 'Роль'),
                   items: const [
                     DropdownMenuItem(value: 'teacher', child: Text('Преподаватель')),

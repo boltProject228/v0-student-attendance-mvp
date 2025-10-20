@@ -1,3 +1,5 @@
+// frontend/lib/screens/analytic_attendance_screen.dart (Updated with combined present count including IThub)
+
 import 'package:attendance_system/models/group.dart';
 import 'package:attendance_system/providers/attendance_provider.dart';
 import 'package:attendance_system/providers/analytics_provider.dart';
@@ -18,7 +20,7 @@ class AnalyticAttendanceScreen extends StatefulWidget {
 
 class _AnalyticAttendanceScreenState extends State<AnalyticAttendanceScreen> {
   String _selectedPeriod = 'day';
-  DateTime _startDate = DateTime.now().subtract(Duration(days: 7));
+  DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
   DateTime _endDate = DateTime.now();
 
   @override
@@ -98,10 +100,10 @@ class _AnalyticAttendanceScreenState extends State<AnalyticAttendanceScreen> {
                 Expanded(
                   child: DropdownButton<String>(
                     value: _selectedPeriod,
-                    items: [
+                    items: const [
                       DropdownMenuItem(value: 'day', child: Text('По дням')),
                       DropdownMenuItem(value: 'week', child: Text('По неделям')),
-                      DropdownMenuItem(value: 'month', child: const Text('По месяцам')),
+                      DropdownMenuItem(value: 'month', child: Text('По месяцам')),
                     ],
                     onChanged: (value) {
                       if (value != null) {
@@ -178,10 +180,10 @@ class _AnalyticAttendanceScreenState extends State<AnalyticAttendanceScreen> {
                     return AnalyticsAttendanceTile(
                       index: index + 1,
                       name: student.fullName,
-                      status: status,
+                      status: status == 'ithub' ? 'present' : status, // Treat IThub as present for display if desired
                       attendancePercentage: double.parse(studentAnalytics['attendancePercentage']),
                       statusSequence: studentAnalytics['periods'].isNotEmpty
-                          ? studentAnalytics['periods'][0]['statuses']
+                          ? studentAnalytics['periods'][0]['statuses'].map((s) => s == 'ithub' ? 'present' : s).toList()
                           : [],
                       onStatusChange: null, // Read-only
                     );
@@ -189,12 +191,11 @@ class _AnalyticAttendanceScreenState extends State<AnalyticAttendanceScreen> {
                 ),
               ),
               AnalyticSummaryBar(
-                present: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('present') ? 1 : 0)),
+                present: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && (s['periods'][0]['statuses'].contains('present') || s['periods'][0]['statuses'].contains('ithub')) ? 1 : 0)),
                 absent: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('absent') ? 1 : 0)),
                 sick: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('sick') ? 1 : 0)),
                 ithub: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('ithub') ? 1 : 0)),
-                unmarked: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('unmarked') ? 1 : 0))    
-                ,
+                unmarked: groupAnalytics['students'].fold<int>(0, (sum, s) => sum + (s['periods'].isNotEmpty && s['periods'][0]['statuses'].contains('unmarked') ? 1 : 0)),
                 onSave: null,
               ),
             ],
