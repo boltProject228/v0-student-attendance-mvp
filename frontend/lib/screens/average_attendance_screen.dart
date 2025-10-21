@@ -1,15 +1,15 @@
 import 'package:attendance_system/providers/attendance_provider.dart';
 import 'package:attendance_system/providers/groups_provider.dart';
-import 'package:attendance_system/providers/auth_provider.dart'; // ❗ ДОБАВИТЬ: Импорт AuthProvider
+import 'package:attendance_system/providers/auth_provider.dart';
 import 'package:attendance_system/widgets/admin/admin_home_drawer.dart';
 import 'package:attendance_system/widgets/head/head_home_drawer.dart';
-
+import 'package:attendance_system/screens/analytics/widgets/date_filter_bar.dart';
+import 'package:attendance_system/screens/analytics/logic/date_ranges.dart';
+import 'package:attendance_system/screens/analytics/models/academic_range.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-
-
 
 class AverageAttendanceScreen extends StatefulWidget {
   const AverageAttendanceScreen({super.key});
@@ -21,21 +21,14 @@ class AverageAttendanceScreen extends StatefulWidget {
 class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
   Map<String, dynamic>? _analyticsData;
   bool _isLoading = false;
-  DateTime _selectedDate = DateTime.now();
-  bool _isRange = false;
+  DateTime? _selectedDate;
   DateTime? _endDate;
-
-  // ❌ УДАЛЕНО: Ошибочный код, использующий context вне build:
-  // Widget? drawerWidget;
-  // if (authProvider.isHead) {
-  //   drawerWidget = const HeadHomeDrawer();
-  // } else if (authProvider.isAdmin) {
-  //   drawerWidget = const AdminHomeDrawer();
-  // }
+  bool _isRange = false;
 
   @override
   void initState() {
     super.initState();
+    _selectedDate = DateTime.now();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAnalytics();
     });
@@ -43,12 +36,9 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
 
   Future<void> _loadAnalytics() async {
     if (_isLoading) return;
-    
+
     setState(() => _isLoading = true);
 
-    // Используем `read` для провайдеров
-    // Примечание: AuthProvider здесь не нужен, но если бы он был нужен, 
-    // его тоже можно было бы получить через context.read<AuthProvider>()
     final attendanceProvider = context.read<AttendanceProvider>();
     final groupsProvider = context.read<GroupsProvider>();
 
@@ -56,40 +46,50 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
     await attendanceProvider.fetchStudents();
     await groupsProvider.fetchGroups();
 
-    final start = _selectedDate;
-    final end = _isRange ? _endDate ?? _selectedDate : _selectedDate;
+    final start = _selectedDate ?? DateTime.now();
+    final end = _isRange ? (_endDate ?? start) : start;
+    final dates = _generateDateRange(start, end);
+    final numDays = dates.length.toDouble();
 
     double present = 0, absent = 0, sick = 0, ithub = 0;
     int totalRecords = 0;
-
-    final dates = _generateDateRange(start, end);
+    int totalStudents = attendanceProvider.students.length;
 
     for (var group in groupsProvider.groups) {
       for (var date in dates) {
         final stats = attendanceProvider.getGroupAttendanceStats(group.id, date);
-        present += stats['present'] ?? 0;
-        absent += stats['absent'] ?? 0;
-        sick += stats['sick'] ?? 0;
-        ithub += stats['ithub'] ?? 0;
-        
+        present += stats['present']?.toDouble() ?? 0.0;
+        absent += stats['absent']?.toDouble() ?? 0.0;
+        sick += stats['sick']?.toDouble() ?? 0.0;
+        ithub += stats['ithub']?.toDouble() ?? 0.0;
         totalRecords += (stats['present'] ?? 0) + (stats['absent'] ?? 0) + (stats['sick'] ?? 0) + (stats['ithub'] ?? 0);
       }
     }
 
-    final total = totalRecords > 0 ? totalRecords.toDouble() : 1.0; 
+    // Средние значения за день в режиме диапазона
+    final double avgPresent = _isRange ? present / numDays : present;
+    final double avgAbsent = _isRange ? absent / numDays : absent;
+    final double avgSick = _isRange ? sick / numDays : sick;
+    final double avgIthub = _isRange ? ithub / numDays : ithub;
+    final double avgTotalRecords = _isRange ? totalRecords.toDouble() / numDays : totalRecords.toDouble();
+
+    // Базис для процентов — общее количество отметок
+    final double total = avgTotalRecords > 0 ? avgTotalRecords : 1.0;
 
     if (mounted) {
       setState(() {
         _analyticsData = {
-          'averagePresent': (present / total * 100).toStringAsFixed(1),
-          'averageAbsent': (absent / total * 100).toStringAsFixed(1),
-          'averageSick': (sick / total * 100).toStringAsFixed(1),
-          'averageIThub': (ithub / total * 100).toStringAsFixed(1),
-          'countPresent': present.toInt(),
-          'countAbsent': absent.toInt(),
-          'countSick': sick.toInt(),
-          'countIThub': ithub.toInt(),
-          'totalRecords': totalRecords,
+          'averagePresent': ((avgPresent / total) * 100).clamp(0.0, 100.0).toStringAsFixed(1),
+          'averageAbsent': ((avgAbsent / total) * 100).clamp(0.0, 100.0).toStringAsFixed(1),
+          'averageSick': ((avgSick / total) * 100).clamp(0.0, 100.0).toStringAsFixed(1),
+          'averageIThub': ((avgIthub / total) * 100).clamp(0.0, 100.0).toStringAsFixed(1),
+          'countPresent': avgPresent,
+          'countAbsent': avgAbsent,
+          'countSick': avgSick,
+          'countIThub': avgIthub,
+          'totalRecords': avgTotalRecords,
+          'totalStudents': totalStudents,
+          'numDays': dates.length,
         };
         _isLoading = false;
       });
@@ -100,16 +100,48 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
     final dates = <String>[];
     final startDay = DateTime(start.year, start.month, start.day);
     final endDay = DateTime(end.year, end.month, end.day);
-    
-    for (var date = startDay;
-        date.isBefore(endDay.add(const Duration(days: 1)));
-        date = date.add(const Duration(days: 1))) {
-      dates.add(DateFormat('yyyy-MM-dd').format(date));
+
+    for (var date = startDay; date.isBefore(endDay.add(const Duration(days: 1))); date = date.add(const Duration(days: 1))) {
+      if (date.weekday >= DateTime.monday && date.weekday <= DateTime.friday) {
+        dates.add(DateFormat('yyyy-MM-dd').format(date));
+      }
     }
     return dates;
   }
 
-  Widget _buildLegendItem(String label, Color color, String value, int count) {
+  Future<void> _setFilterRange({
+    AcademicRange? fixedRange,
+    DateTime? manualStart,
+    DateTime? manualEnd,
+  }) async {
+    DateTime newStartDate;
+    DateTime? newEndDate;
+    bool newIsRange = false;
+
+    if (fixedRange != null) {
+      newStartDate = fixedRange.startDate;
+      newEndDate = fixedRange.endDate;
+      newIsRange = fixedRange.endDate != null;
+    } else if (manualStart != null) {
+      newStartDate = manualStart;
+      newEndDate = manualEnd;
+      newIsRange = manualEnd != null;
+    } else {
+      newStartDate = DateTime.now();
+      newEndDate = null;
+      newIsRange = false;
+    }
+
+    setState(() {
+      _selectedDate = newStartDate;
+      _endDate = newEndDate;
+      _isRange = newIsRange;
+    });
+
+    await _loadAnalytics();
+  }
+
+  Widget _buildLegendItem(String label, Color color, String value, double count) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
@@ -117,8 +149,8 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
         children: [
           Container(
             width: 16,
-            height: 16, 
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle)
+            height: 16,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 12),
           RichText(
@@ -133,85 +165,16 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
                   text: '$value% ',
                   style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 18),
                 ),
-                TextSpan(
-                  text: '| $count студентов',
-                  style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.grey, fontSize: 16),
-                ),
+                if (!_isRange && count > 0)
+                  TextSpan(
+                    text: ' | ${count.round()} студентов',
+                    style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.grey, fontSize: 16),
+                  ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDateFilter() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.calendar_today, size: 20),
-            label: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12.0),
-              child: Text(
-                _isRange
-                    ? '${DateFormat('dd.MM.yyyy').format(_selectedDate)} - ${_endDate != null ? DateFormat('dd.MM.yyyy').format(_endDate!) : 'Выберите дату'}'
-                    : DateFormat('dd.MM.yyyy').format(_selectedDate),
-                style: const TextStyle(fontSize: 18),
-              ),
-            ),
-            onPressed: () async {
-              if (_isRange) {
-                final pickedRange = await showDateRangePicker(
-                  context: context,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
-                  initialDateRange: _endDate != null ? DateTimeRange(start: _selectedDate, end: _endDate!) : null,
-                );
-                if (pickedRange != null) {
-                  setState(() {
-                    _selectedDate = pickedRange.start;
-                    _endDate = pickedRange.end;
-                  });
-                  _loadAnalytics();
-                }
-              } else {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _selectedDate,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime.now(),
-                );
-                if (picked != null) {
-                  setState(() {
-                    _selectedDate = picked;
-                    _endDate = null;
-                  });
-                  _loadAnalytics();
-                }
-              }
-            },
-          ),
-        ),
-        const SizedBox(width: 16),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Switch.adaptive(
-              value: _isRange,
-              onChanged: (value) {
-                setState(() {
-                  _isRange = value;
-                  if (!value) _endDate = null;
-                });
-                _loadAnalytics();
-              },
-            ),
-            const Text('Диапазон', style: TextStyle(fontSize: 14)),
-          ],
-        ),
-      ],
     );
   }
 
@@ -221,11 +184,12 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
     final double absent = double.parse(data['averageAbsent']);
     final double sick = double.parse(data['averageSick']);
     final double ithub = double.parse(data['averageIThub']);
-    final int totalRecords = data['totalRecords'];
+    final int numDays = data['numDays'];
+    final int totalStudents = data['totalStudents'];
 
     final totalValue = present + absent + sick + ithub;
 
-    if (totalRecords == 0 || totalValue == 0) {
+    if (totalValue == 0) {
       return Card(
         elevation: 6,
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
@@ -233,7 +197,7 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
           height: 150,
           child: Center(
             child: Text(
-              'Нет отметок за выбранный период (${_isRange ? 'c ${DateFormat('dd.MM').format(_selectedDate)} по ${DateFormat('dd.MM').format(_endDate ?? _selectedDate)}' : DateFormat('dd.MM.yyyy').format(_selectedDate)}).', 
+              'Нет отметок за выбранный период (${_isRange ? 'с ${DateFormat('dd.MM').format(_selectedDate!)} по ${DateFormat('dd.MM').format(_endDate ?? _selectedDate!)}' : DateFormat('dd.MM.yyyy').format(_selectedDate!)}).',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 18, color: Colors.grey),
             ),
@@ -241,7 +205,7 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
         ),
       );
     }
-    
+
     String getTitle(double value) {
       return value > 3.0 ? '${value.toStringAsFixed(0)}%' : '';
     }
@@ -286,7 +250,9 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Распределение отметок (Всего отметок: $totalRecords)',
+              _isRange
+                  ? 'Среднее распределение отметок за день ($numDays дн.)'
+                  : 'Распределение отметок ($totalStudents студентов)',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const Divider(),
@@ -294,39 +260,49 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
             Center(
               child: SizedBox(
                 height: 250,
-                width: 250, 
+                width: 250,
                 child: PieChart(
                   PieChartData(
                     sections: sections,
                     centerSpaceRadius: 50,
                     sectionsSpace: 4,
                     borderData: FlBorderData(show: false),
-                    pieTouchData: PieTouchData(enabled: false), 
+                    pieTouchData: PieTouchData(enabled: false),
                   ),
                 ),
               ),
             ),
-            
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 8),
-
             Wrap(
               spacing: 20,
               runSpacing: 10,
               alignment: WrapAlignment.start,
               children: [
                 _buildLegendItem(
-                  'Присутствовали', Colors.green.shade600, data['averagePresent'], data['countPresent']
+                  'Присутствовали',
+                  Colors.green.shade600,
+                  data['averagePresent'],
+                  _isRange ? 0 : data['countPresent'],
                 ),
                 _buildLegendItem(
-                  'Отсутствовали', Colors.red.shade600, data['averageAbsent'], data['countAbsent']
+                  'Отсутствовали',
+                  Colors.red.shade600,
+                  data['averageAbsent'],
+                  _isRange ? 0 : data['countAbsent'],
                 ),
                 _buildLegendItem(
-                  'Больничные', Colors.orange.shade600, data['averageSick'], data['countSick']
+                  'Больничные',
+                  Colors.orange.shade600,
+                  data['averageSick'],
+                  _isRange ? 0 : data['countSick'],
                 ),
                 _buildLegendItem(
-                  'IT-hub', Colors.purple.shade600, data['averageIThub'], data['countIThub']
+                  'IT-hub',
+                  Colors.purple.shade600,
+                  data['averageIThub'],
+                  _isRange ? 0 : data['countIthub'],
                 ),
               ],
             ),
@@ -338,15 +314,11 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ❗ ИСПРАВЛЕНИЕ 1: Адаптивная логика перемещена внутрь build
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
     final double titleFontSize = isMobile ? 17.0 : 20.0;
 
-    // ❗ ИСПРАВЛЕНИЕ 2: Получаем AuthProvider и логику drawer
-    // Используем context.watch<T>() для отслеживания изменений в провайдере
     final authProvider = context.watch<AuthProvider>();
-    
     Widget? drawerWidget;
     if (authProvider.isHead) {
       drawerWidget = const HeadHomeDrawer();
@@ -363,18 +335,15 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
             fontSize: titleFontSize,
           ),
         ),
-        
         backgroundColor: Colors.white,
         elevation: 2,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _isLoading ? null : _loadAnalytics, 
+            onPressed: _isLoading ? null : _loadAnalytics,
           ),
         ],
-        
       ),
-      // ❗ ПРИМЕНЕНИЕ: Используем вычисленный drawerWidget
       drawer: drawerWidget,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -385,7 +354,15 @@ class _AverageAttendanceScreenState extends State<AverageAttendanceScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildDateFilter(),
+                      DateFilterBar(
+                        isMobile: isMobile,
+                        startDate: _selectedDate,
+                        endDate: _endDate,
+                        isRange: _isRange,
+                        fixedRanges: generateFixedRanges(),
+                        onFixedRangeSelected: (range) => _setFilterRange(fixedRange: range),
+                        onManualRangeSelected: (start, end) => _setFilterRange(manualStart: start, manualEnd: end),
+                      ),
                       const SizedBox(height: 24),
                       _buildChartCard(context),
                     ],

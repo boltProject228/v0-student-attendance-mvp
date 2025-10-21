@@ -50,7 +50,15 @@ class AdminHomeDrawer extends StatelessWidget {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/analytics');
             },
-          ), 
+          ),
+          ListTile(
+  leading: const Icon(Icons.pie_chart, color: Colors.white),
+  title: const Text('Средняя посещаемость', style: TextStyle(color: Colors.white)),
+  onTap: () {
+    Navigator.pop(context);
+    Navigator.pushNamed(context, '/average_attendance');
+  },
+),
           ListTile(
             leading: const Icon(Icons.download, color: Colors.white),
             title: const Text('Экспорт', style: TextStyle(color: Colors.white)),
