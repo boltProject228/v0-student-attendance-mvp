@@ -46,6 +46,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     for (var att in provider.attendanceList.where((a) =>
         a.groupId == widget.group.id &&
         DateFormat('yyyy-MM-dd').format(a.date) == today)) {
+      // Ищем самую последнюю отметку по времени обновления
       if (maxUpdatedAt == null || att.updatedAt.isAfter(maxUpdatedAt)) {
         maxUpdatedAt = att.updatedAt;
         lastAttendance = att;
@@ -62,10 +63,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _attIds[entry.key] = entry.value['id']!;
       }
       if (lastAttendance != null) {
-        // ✅ ИСПРАВЛЕНИЕ: Используем updatedByName для получения ФИО
         lastUpdatedByName = lastAttendance.updatedByName; 
         lastUpdatedByRole = lastAttendance.updatedByRole;
-        lastUpdatedAt = lastAttendance.updatedAt;
+        
+        // ✅ ИСПРАВЛЕНИЕ ВРЕМЕНИ: Преобразуем UTC дату из базы данных в локальное время устройства
+        lastUpdatedAt = lastAttendance.updatedAt.toLocal(); 
+        
       } else {
         lastUpdatedByName = null;
         lastUpdatedByRole = null;
@@ -73,7 +76,23 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       }
     });
   }
-
+  
+  // ✅ НОВАЯ ФУНКЦИЯ: Преобразует роль с английского на русский
+  String _mapRoleToRussian(String? role) {
+    if (role == null) return '';
+    switch (role?.toLowerCase()) {
+      case 'head':
+        return 'заведующий';
+      case 'teacher':
+        return 'преподаватель';
+      case 'admin':
+        return 'администратор';
+      default:
+        // Возвращаем исходную роль, если она не найдена
+        return role ?? ''; 
+    }
+  }
+  
   Map<String, int> get _summary {
     final stats = {
       'present': 0,
@@ -102,6 +121,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
 
+    // ✅ ИСПОЛЬЗОВАНИЕ: Преобразуем роль для отображения
+    final displayRole = _mapRoleToRussian(lastUpdatedByRole);
+    
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
@@ -177,7 +199,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               padding: EdgeInsets.symmetric(
                   horizontal: isMobile ? 8.0 : 16.0, vertical: 6.0),
               child: Text(
-                'Обновлено: $lastUpdatedByName ($lastUpdatedByRole) в ${DateFormat('HH:mm dd.MM.yyyy').format(lastUpdatedAt!)}',
+                // ✅ ИСПОЛЬЗОВАНИЕ displayRole для русского названия
+                'Обновлено: $lastUpdatedByName ($displayRole) в ${DateFormat('HH:mm dd.MM.yyyy').format(lastUpdatedAt!)}',
                 style: TextStyle(
                   fontSize: isMobile ? 11 : 13,
                   color: Colors.grey,

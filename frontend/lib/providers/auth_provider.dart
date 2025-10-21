@@ -107,5 +107,4 @@ class AuthProvider with ChangeNotifier {
       await HiveService.clearAll();
       return false;
     }
-  } 
-}
+  }}

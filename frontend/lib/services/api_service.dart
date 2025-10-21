@@ -17,51 +17,60 @@ class ApiService {
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),
-    );
+    )
+    // ✅ ИСПРАВЛЕНИЕ 401: Добавлен Interceptor для динамической аутентификации
+    ..interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        // 1. Получаем актуальный токен непосредственно перед отправкой запроса
+        final token = HiveService.getToken();
 
-  static Future<Map<String, String>> _getHeaders() async {
-    final token = HiveService.getToken();
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
-    if (token != null && token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token';
-    }
-    return headers;
-  }
+        // 2. Устанавливаем общие заголовки
+        options.headers['Content-Type'] = 'application/json';
+        
+        // 3. Добавляем токен, если он существует
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
 
+        return handler.next(options);
+      },
+    ));
+
+  // ❌ УДАЛЕН: Метод _getHeaders() удален, так как его функциональность перенесена в Interceptor.
+  // ❌ УДАЛЕН: Удалена логика ручного получения заголовков во всех нижеследующих методах.
+  
   static Future<Response> _get(String endpoint, {Map<String, dynamic>? queryParameters}) async {
-    final headers = await _getHeaders();
+    // final headers = await _getHeaders(); // ❌ УДАЛЕНО
     return await _dio.get(
       endpoint,
-      options: Options(headers: headers),
+      // options: Options(headers: headers), // ❌ УДАЛЕНО
       queryParameters: queryParameters,
     );
   }
 
   static Future<Response> _post(String endpoint, Map<String, dynamic> body) async {
-    final headers = await _getHeaders();
+    // final headers = await _getHeaders(); // ❌ УДАЛЕНО
     return await _dio.post(
       endpoint,
       data: body,
-      options: Options(headers: headers),
+      // options: Options(headers: headers), // ❌ УДАЛЕНО
     );
   }
 
   static Future<Response> _put(String endpoint, Map<String, dynamic> body) async {
-    final headers = await _getHeaders();
+    // final headers = await _getHeaders(); // ❌ УДАЛЕНО
     return await _dio.put(
       endpoint,
       data: body,
-      options: Options(headers: headers),
+      // options: Options(headers: headers), // ❌ УДАЛЕНО
     );
   }
 
   static Future<Response> _delete(String endpoint) async {
-    final headers = await _getHeaders();
+    // final headers = await _getHeaders(); // ❌ УДАЛЕНО
     return await _dio.delete(
       endpoint,
-      options: Options(headers: headers),
+      // options: Options(headers: headers), // ❌ УДАЛЕНО
     );
   }
 
@@ -79,6 +88,8 @@ class ApiService {
       await HiveService.saveUser(user);
       return data;
     }
+    // Обработка исключений Dio будет происходить автоматически, 
+    // но явный throw сохранит текущую логику.
     throw Exception('Login failed: ${response.statusCode} ${response.data['error']}');
   }
 
@@ -136,6 +147,13 @@ class ApiService {
     if (response.statusCode == 200) return response.data as Map<String, dynamic>;
     throw Exception('Failed to update attendance: ${response.statusCode} ${response.data['error']}');
   }
+  
+  static Future<void> deleteAttendance(String id) async {
+    final response = await _delete('/attendance/$id');
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete attendance: ${response.statusCode} ${response.data['error']}');
+    }
+  }
 
   // -------------------
   // Analytics
@@ -154,10 +172,26 @@ class ApiService {
     if (response.statusCode == 200) return response.data as List<dynamic>;
     throw Exception('Failed to load student analytics: ${response.statusCode} ${response.data['error']}');
   }
+  
+  static Future<Map<String, dynamic>> getGroupAnalytics({
+    required String groupId,
+    required String startDate,
+    required String endDate,
+    String period = 'day',
+  }) async {
+    final queryParameters = {
+      'startDate': startDate,
+      'endDate': endDate,
+      'period': period,
+    };
+    final response = await _get('/analytics/group/$groupId', queryParameters: queryParameters);
+    // Dio автоматически выбрасывает DioError для 4xx/5xx, поэтому достаточно вернуть данные
+    if (response.statusCode == 200) return response.data as Map<String, dynamic>;
+    throw Exception('Failed to load group analytics: ${response.statusCode} ${response.data['error']}');
+  }
 
   // -------------------
   // Admin endpoints (users/groups/students)
-  // Note: Removed subjects as they are not in backend
   // -------------------
   static Future<List<dynamic>> getAdminUsers() async {
     final response = await _get('/admin/users');
@@ -177,7 +211,7 @@ class ApiService {
   }
 
   static Future<List<dynamic>> getAdminGroups() async {
-    final response = await _get('/groups');  // Use same as getGroups, or /admin/groups if separate
+    final response = await _get('/groups'); 
     if (response.statusCode == 200) return response.data as List<dynamic>;
     throw Exception('Failed to load admin groups: ${response.statusCode} ${response.data['error']}');
   }
@@ -225,50 +259,19 @@ class ApiService {
     try {
       final response = await _put('/admin/users/$id', data);
       
-      // Dio бросает исключение для 4xx/5xx, поэтому, если мы здесь,
-      // это, вероятно, 200 (или другой успешный код, который мы ожидаем)
       if (response.statusCode == 200) {
         return response.data as Map<String, dynamic>;
       }
       throw Exception('Неожиданный статус: ${response.statusCode}');
       
     } on DioException catch (e) {
-      // Извлечение сообщения об ошибке из тела ответа бэкенда
       final errorMsg = e.response?.data?['error'] ?? 'Неизвестная ошибка обновления пользователя.';
       throw Exception(errorMsg);
     } catch (e) {
-      // Обработка других ошибок (например, сетевых)
       throw Exception('Непредвиденная ошибка: $e');
     }
   }
 
-  // -------------------
-  // Delete Attendance
-  // -------------------
-  static Future<void> deleteAttendance(String id) async {
-  final response = await _delete('/attendance/$id');
-  if (response.statusCode != 200) {
-    throw Exception('Failed to delete attendance: ${response.statusCode} ${response.data['error']}');
-  }
-}
-
-  // -------------------
-  // Get Group Analytics
-  // -------------------
-  static Future<Map<String, dynamic>> getGroupAnalytics({
-  required String groupId,
-  required String startDate,
-  required String endDate,
-  String period = 'day',
-}) async {
-  final queryParameters = {
-    'startDate': startDate,
-    'endDate': endDate,
-    'period': period,
-  };
-  final response = await _get('/analytics/group/$groupId', queryParameters: queryParameters);
-  return response.data as Map<String, dynamic>;
-}
   // -------------------
   // Ping for testing connection
   // -------------------

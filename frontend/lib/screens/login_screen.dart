@@ -26,8 +26,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final success = await authProvider.login(
-        _loginController.text,
-        _passwordController.text,
+        _loginController.text.trim(),
+        _passwordController.text.trim(),
         context,
       );
 
@@ -108,6 +108,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       // 📥 Поле логина
                       TextFormField(
                         controller: _loginController,
+                        autofillHints: const [AutofillHints.username],
+                        textInputAction: TextInputAction.next,
                         style: TextStyle(fontSize: fieldFontSize),
                         decoration: InputDecoration(
                           labelText: 'Логин',
@@ -116,8 +118,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        validator: (value) =>
-                            value == null || value.isEmpty ? 'Введите логин' : null,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Введите логин';
+                          if (value.length > 50) return 'Слишком длинный логин';
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
 
@@ -125,6 +130,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: !_isPasswordVisible,
+                        autofillHints: const [AutofillHints.password],
+                        textInputAction: TextInputAction.done,
                         style: TextStyle(fontSize: fieldFontSize),
                         decoration: InputDecoration(
                           labelText: 'Пароль',
@@ -145,8 +152,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        validator: (value) =>
-                            value == null || value.isEmpty ? 'Введите пароль' : null,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) return 'Введите пароль';
+                          if (value.length < 4) return 'Минимум 4 символа';
+                          return null;
+                        },
+                        onFieldSubmitted: (_) => _handleLogin(),
                       ),
                       const SizedBox(height: 24),
 
@@ -160,23 +171,28 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: authProvider.isLoading
-                            ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: authProvider.isLoading
+                              ? const SizedBox(
+                                  key: ValueKey('loading'),
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  key: const ValueKey('login'),
+                                  'Войти',
+                                  style: TextStyle(
+                                    fontSize: buttonFontSize,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                                 ),
-                              )
-                            : Text(
-                                'Войти',
-                                style: TextStyle(
-                                  fontSize: buttonFontSize,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
+                        ),
                       ),
                     ],
                   ),

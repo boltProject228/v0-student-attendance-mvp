@@ -14,7 +14,7 @@ import 'screens/login_screen.dart';
 import 'screens/teacher/teacher_home_screen.dart';
 import 'screens/head/head_home_screen.dart';
 import 'screens/admin/admin_screen.dart';
-import 'screens/head/analytics_screen.dart';
+import 'screens/analytics/analytics_screen.dart';
 import 'screens/head/export_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/average_attendance_screen.dart';
