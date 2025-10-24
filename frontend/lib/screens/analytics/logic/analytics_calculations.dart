@@ -1,5 +1,4 @@
-import 'package:attendance_system/models/group.dart';
-import 'package:attendance_system/models/student.dart';
+// frontend/lib/screens/analytics/logic/analytics_calculations.dart
 import 'package:attendance_system/providers/attendance_provider.dart';
 import 'package:attendance_system/providers/groups_provider.dart';
 import 'package:attendance_system/screens/analytics/logic/date_ranges.dart';
@@ -16,7 +15,7 @@ Future<Map<String, dynamic>> calculateOverallAnalytics(
   final totalGroups = groupsProvider.groups.length;
 
   double present = 0, absent = 0, sick = 0, ithub = 0;
-  int totalRecords = 0; // Excludes sick
+  int totalRecords = 0;
 
   final start = isRange ? startDate : startDate;
   final end = isRange ? endDate : startDate;
@@ -27,15 +26,15 @@ Future<Map<String, dynamic>> calculateOverallAnalytics(
   for (var group in groupsProvider.groups) {
     for (var date in dates) {
       final stats = attendanceProvider.getGroupAttendanceStats(group.id, date);
-      present += (stats['present'] ?? 0) + (stats['ithub'] ?? 0); // Combine present and ithub
+      present += (stats['present'] ?? 0) + (stats['ithub'] ?? 0);
       absent += stats['absent'] ?? 0;
       sick += stats['sick'] ?? 0;
-      totalRecords += (stats['present'] ?? 0) + (stats['absent'] ?? 0) + (stats['ithub'] ?? 0); // Exclude sick
+      totalRecords += (stats['present'] ?? 0) + (stats['absent'] ?? 0) + (stats['ithub'] ?? 0);
     }
   }
 
   final total = totalRecords > 0 ? totalRecords : 1;
-  final totalWithSick = total + sick; // For sick percentage
+  final totalWithSick = total + sick;
 
   return {
     'totalStudents': totalStudents,
@@ -66,11 +65,8 @@ Future<List<Map<String, dynamic>>> calculateGroupAnalytics(
 
   List<Map<String, dynamic>> groupData = [];
   for (var group in groupsProvider.groups) {
-    double present = 0;
-    double absent = 0;
-    double sick = 0;
-    double ithub = 0;
-    int totalMarked = 0; // Excludes sick
+    double present = 0, absent = 0, sick = 0, ithub = 0;
+    int totalMarked = 0;
     int studentCount = attendanceProvider.getGroupStudentCount(group.id);
 
     for (var date in dates) {
@@ -79,11 +75,11 @@ Future<List<Map<String, dynamic>>> calculateGroupAnalytics(
       absent += stats['absent'] ?? 0;
       sick += stats['sick'] ?? 0;
       ithub += stats['ithub'] ?? 0;
-      totalMarked += (stats['present'] ?? 0) + (stats['absent'] ?? 0) + (stats['ithub'] ?? 0); // Exclude sick
+      totalMarked += (stats['present'] ?? 0) + (stats['absent'] ?? 0) + (stats['ithub'] ?? 0);
     }
 
     final total = totalMarked > 0 ? totalMarked : 1;
-    final totalWithSick = total + sick; // For sick percentage
+    final totalWithSick = total + sick;
     final attendancePercent = ((present + ithub) / total * 100).toStringAsFixed(1);
 
     groupData.add({
@@ -123,14 +119,12 @@ Future<List<Map<String, dynamic>>> calculateStudentAnalytics(
   List<Map<String, dynamic>> studentData = [];
   for (var student in attendanceProvider.students) {
     double present = 0;
-    int totalRecords = 0; // Excludes sick
+    int totalRecords = 0;
     for (var date in dates) {
       final attendance = attendanceProvider.getStudentAttendance(student.id, date);
       if (attendance.status != 'unmarked' && attendance.status != 'sick') {
         totalRecords++;
-        if (attendance.status == 'present' || attendance.status == 'ithub') {
-          present++;
-        }
+        if (attendance.status == 'present' || attendance.status == 'ithub') present++;
       }
     }
     final total = totalRecords > 0 ? totalRecords : 1;

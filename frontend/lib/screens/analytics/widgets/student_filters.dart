@@ -102,7 +102,7 @@ class StudentFilters extends StatelessWidget {
         Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
-          value: value,
+          initialValue: value,
           style: const TextStyle(color: Colors.black),
           dropdownColor: Colors.white,
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.black),

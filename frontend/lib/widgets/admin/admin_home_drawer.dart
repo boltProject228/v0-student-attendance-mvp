@@ -1,3 +1,4 @@
+// frontend/lib/widgets/admin/admin_home_drawer.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -52,19 +53,27 @@ class AdminHomeDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-  leading: const Icon(Icons.pie_chart, color: Colors.white),
-  title: const Text('Средняя посещаемость', style: TextStyle(color: Colors.white)),
-  onTap: () {
-    Navigator.pop(context);
-    Navigator.pushNamed(context, '/average_attendance');
-  },
-),
+            leading: const Icon(Icons.pie_chart, color: Colors.white),
+            title: const Text('Средняя посещаемость', style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/average_attendance');
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.download, color: Colors.white),
             title: const Text('Экспорт', style: TextStyle(color: Colors.white)),
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, '/export');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.upload, color: Colors.white),
+            title: const Text('Импорт', style: TextStyle(color: Colors.white)),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/import');
             },
           ),
           const Divider(color: Colors.white24, thickness: 1),

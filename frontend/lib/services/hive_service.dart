@@ -1,4 +1,3 @@
-// lib/services/hive_service.dart
 import 'dart:convert';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/user.dart';
@@ -13,51 +12,19 @@ class HiveService {
 
   static Future<void> init() async {
     if (_box != null && _box!.isOpen) return;
-
     await Hive.initFlutter();
-
-    // Регистрация адаптеров — безопасно (проверяем по typeId)
-    try {
-      if (!Hive.isAdapterRegistered(AttendanceAdapter().typeId)) {
-        Hive.registerAdapter(AttendanceAdapter());
-      }
-    } catch (e) {
-      // ignore if adapter class missing at runtime - но обычно это не должно случаться
-      print('Hive: attendance adapter registration error: $e');
-    }
-    try {
-      if (!Hive.isAdapterRegistered(GroupAdapter().typeId)) {
-        Hive.registerAdapter(GroupAdapter());
-      }
-    } catch (e) {
-      print('Hive: group adapter registration error: $e');
-    }
-    try {
-      if (!Hive.isAdapterRegistered(StudentAdapter().typeId)) {
-        Hive.registerAdapter(StudentAdapter());
-      }
-    } catch (e) {
-      print('Hive: student adapter registration error: $e');
-    }
-    try {
-      if (!Hive.isAdapterRegistered(UserAdapter().typeId)) {
-        Hive.registerAdapter(UserAdapter());
-      }
-    } catch (e) {
-      print('Hive: user adapter registration error: $e');
-    }
-
+    if (!Hive.isAdapterRegistered(AttendanceAdapter().typeId)) Hive.registerAdapter(AttendanceAdapter());
+    if (!Hive.isAdapterRegistered(GroupAdapter().typeId)) Hive.registerAdapter(GroupAdapter());
+    if (!Hive.isAdapterRegistered(StudentAdapter().typeId)) Hive.registerAdapter(StudentAdapter());
+    if (!Hive.isAdapterRegistered(UserAdapter().typeId)) Hive.registerAdapter(UserAdapter());
     _box = await Hive.openBox(boxName);
     print('HiveService: box opened: $boxName');
   }
 
   static Future<void> _ensureBoxInitialized() async {
-    if (_box == null || !_box!.isOpen) {
-      await init();
-    }
+    if (_box == null || !_box!.isOpen) await init();
   }
 
-  // ---------------- token ----------------
   static Future<void> saveToken(String token) async {
     await _ensureBoxInitialized();
     try {
@@ -69,9 +36,8 @@ class HiveService {
 
   static String? getToken() {
     if (_box == null || !_box!.isOpen) return null;
-    final t = _box!.get('token');
-    if (t == null) return null;
-    return t.toString();
+    final token = _box!.get('token');
+    return token?.toString();
   }
 
   static Future<void> removeToken() async {
@@ -79,13 +45,12 @@ class HiveService {
     await _box!.delete('token');
   }
 
-  // ---------------- user ----------------
   static Future<void> saveUser(User user) async {
     await _ensureBoxInitialized();
     try {
-      // Сохраняем как объект (Hive adapter) и как Map (резерв)
       await _box!.put('user', user);
       await _box!.put('user_map', user.toJson());
+      await _updateLastUpdate('user');
     } catch (e) {
       print('HiveService.saveUser error: $e');
     }
@@ -93,14 +58,17 @@ class HiveService {
 
   static User? getUser() {
     if (_box == null || !_box!.isOpen) return null;
+    if (!_isCacheValid('user')) {
+      _box!.delete('user');
+      _box!.delete('user_map');
+      return null;
+    }
     final raw = _box!.get('user');
     if (raw == null) {
-      // попробуем резервную копию map или json-string
       final fallback = _box!.get('user_map');
       if (fallback == null) return null;
       return _userFromDynamic(fallback);
     }
-
     return _userFromDynamic(raw);
   }
 
@@ -108,19 +76,11 @@ class HiveService {
     try {
       if (raw == null) return null;
       if (raw is User) return raw;
-      if (raw is Map) {
-        // Map может содержать dynamic values — приводим
-        final map = Map<String, dynamic>.from(raw);
-        return User.fromJson(map);
-      }
+      if (raw is Map) return User.fromJson(Map<String, dynamic>.from(raw));
       if (raw is String) {
-        // может быть JSON-строка
         final decoded = jsonDecode(raw);
-        if (decoded is Map) {
-          return User.fromJson(Map<String, dynamic>.from(decoded));
-        }
+        if (decoded is Map) return User.fromJson(Map<String, dynamic>.from(decoded));
       }
-      // В некоторых случаях библиотека могла сохранить List или другой тип
       print('HiveService.getUser(): unexpected type ${raw.runtimeType}');
       return null;
     } catch (e) {
@@ -133,9 +93,9 @@ class HiveService {
     await _ensureBoxInitialized();
     await _box!.delete('user');
     await _box!.delete('user_map');
+    await _box!.delete('user_lastUpdate');
   }
 
-  // ---------------- groups ----------------
   static Future<void> saveGroups(List<Group> groups) async {
     await _ensureBoxInitialized();
     try {
@@ -149,7 +109,11 @@ class HiveService {
 
   static List<Group>? getGroups() {
     if (_box == null || !_box!.isOpen) return null;
-    if (!_isCacheValid('groups')) return null;
+    if (!_isCacheValid('groups')) {
+      _box!.delete('groups');
+      _box!.delete('groups_map');
+      return null;
+    }
     final raw = _box!.get('groups');
     if (raw == null) {
       final rawMap = _box!.get('groups_map');
@@ -159,7 +123,6 @@ class HiveService {
     return _castListFromDynamic<Group>(raw, (m) => Group.fromJson(Map<String, dynamic>.from(m)));
   }
 
-  // ---------------- students ----------------
   static Future<void> saveStudents(List<Student> students) async {
     await _ensureBoxInitialized();
     try {
@@ -173,7 +136,11 @@ class HiveService {
 
   static List<Student>? getStudents() {
     if (_box == null || !_box!.isOpen) return null;
-    if (!_isCacheValid('students')) return null;
+    if (!_isCacheValid('students')) {
+      _box!.delete('students');
+      _box!.delete('students_map');
+      return null;
+    }
     final raw = _box!.get('students');
     if (raw == null) {
       final rawMap = _box!.get('students_map');
@@ -183,7 +150,6 @@ class HiveService {
     return _castListFromDynamic<Student>(raw, (m) => Student.fromJson(Map<String, dynamic>.from(m)));
   }
 
-  // ---------------- attendance ----------------
   static Future<void> saveAttendance(List<Attendance> attendance) async {
     await _ensureBoxInitialized();
     try {
@@ -197,7 +163,11 @@ class HiveService {
 
   static List<Attendance>? getAttendance() {
     if (_box == null || !_box!.isOpen) return null;
-    if (!_isCacheValid('attendance')) return null;
+    if (!_isCacheValid('attendance')) {
+      _box!.delete('attendance');
+      _box!.delete('attendance_map');
+      return null;
+    }
     final raw = _box!.get('attendance');
     if (raw == null) {
       final rawMap = _box!.get('attendance_map');
@@ -207,7 +177,28 @@ class HiveService {
     return _castListFromDynamic<Attendance>(raw, (m) => Attendance.fromJson(Map<String, dynamic>.from(m)));
   }
 
-  // ---------------- common ----------------
+  // Новый метод для получения посещаемости по группе
+  static Future<List<Attendance>?> getAttendanceForGroup(String groupId) async {
+    await _ensureBoxInitialized();
+    if (_box == null || !_box!.isOpen) return null;
+    if (!_isCacheValid('attendance')) {
+      _box!.delete('attendance');
+      _box!.delete('attendance_map');
+      return null;
+    }
+    final raw = _box!.get('attendance');
+    if (raw == null) {
+      final rawMap = _box!.get('attendance_map');
+      if (rawMap == null) return null;
+      return _castListFromMap<Attendance>(rawMap, (m) => Attendance.fromJson(Map<String, dynamic>.from(m)))
+          ?.where((a) => a.groupId == groupId)
+          .toList();
+    }
+    return _castListFromDynamic<Attendance>(raw, (m) => Attendance.fromJson(Map<String, dynamic>.from(m)))
+        ?.where((a) => a.groupId == groupId)
+        .toList();
+  }
+
   static Future<void> clearAll() async {
     await _ensureBoxInitialized();
     await _box!.clear();
@@ -227,45 +218,34 @@ class HiveService {
     return DateTime.now().difference(lastUpdate).inHours < cacheExpirationHours;
   }
 
-  // ---------------- helpers ----------------
-  // Попытка привести raw (List) к List<T>. Если элементы уже T -> cast.
-  // Иначе, если элементы Map -> мапим через fromMap.
   static List<T>? _castListFromDynamic<T>(dynamic raw, T Function(Map<String, dynamic>) fromMap) {
     try {
       if (raw is List<T>) return raw.cast<T>();
       if (raw is List) {
         if (raw.isEmpty) return <T>[];
         final first = raw.first;
-        if (first is T) {
-          return raw.cast<T>();
-        } else if (first is Map) {
-          return raw.map<T>((e) => fromMap(Map<String, dynamic>.from(e))).toList();
-        } else {
-          print('HiveService: unexpected list element type ${first.runtimeType}');
-          return null;
-        }
+        if (first is T) return raw.cast<T>();
+        if (first is Map) return raw.map<T>((e) => fromMap(Map<String, dynamic>.from(e))).toList();
+        print('HiveService: unexpected list element type ${first.runtimeType}');
+        return null;
       }
       return null;
     } catch (e) {
-      print('_castListFromDynamic error: $e');
+      print('HiveService._castListFromDynamic error: $e');
       return null;
     }
   }
 
-  // Вспомогательная версия, когда rawMap уже явно Map-список
   static List<T>? _castListFromMap<T>(dynamic rawMap, T Function(Map<String, dynamic>) fromMap) {
     try {
-      if (rawMap is List) {
-        return rawMap.map<T>((e) => fromMap(Map<String, dynamic>.from(e))).toList();
-      }
+      if (rawMap is List) return rawMap.map<T>((e) => fromMap(Map<String, dynamic>.from(e))).toList();
       return null;
     } catch (e) {
-      print('_castListFromMap error: $e');
+      print('HiveService._castListFromMap error: $e');
       return null;
     }
   }
 
-  // Generic save
   static Future<void> saveGeneric(String key, dynamic value, Duration expiration) async {
     await _ensureBoxInitialized();
     try {
@@ -276,17 +256,20 @@ class HiveService {
     }
   }
 
-  // Generic get
   static T? getGeneric<T>(String key) {
     if (_box == null || !_box!.isOpen) return null;
     final expirationStr = _box!.get('${key}_lastUpdate') as String?;
-    if (expirationStr == null) return null;
+    if (expirationStr == null) {
+      _box!.delete(key);
+      return null;
+    }
     final expiration = DateTime.tryParse(expirationStr);
     if (expiration == null || DateTime.now().isAfter(expiration)) {
       _box!.delete(key);
       _box!.delete('${key}_lastUpdate');
       return null;
     }
-    return _box!.get(key) as T?;
+    final value = _box!.get(key);
+    return value is T ? value : null;
   }
 }

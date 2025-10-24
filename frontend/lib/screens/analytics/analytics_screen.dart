@@ -1,5 +1,4 @@
-import 'package:attendance_system/models/group.dart';
-import 'package:attendance_system/models/student.dart';
+import 'package:attendance_system/providers/analytics_provider.dart';
 import 'package:attendance_system/providers/auth_provider.dart';
 import 'package:attendance_system/providers/attendance_provider.dart';
 import 'package:attendance_system/providers/groups_provider.dart';
@@ -91,11 +90,27 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     try {
       final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
       final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+      final analyticsProvider = Provider.of<AnalyticsProvider>(context, listen: false);
 
+      // Fetch base data
       await attendanceProvider.fetchStudents();
       await attendanceProvider.fetchAttendance();
       await groupsProvider.fetchGroups();
 
+      // Fetch analytics for the first group or a selected group
+      final selectedGroup = groupsProvider.groups.isNotEmpty ? groupsProvider.groups.first.id : null;
+      final startDateStr = _startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final endDateStr = _endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : startDateStr;
+      if (selectedGroup != null) {
+        await analyticsProvider.fetchGroupAnalytics(
+          groupId: selectedGroup,
+          startDate: startDateStr,
+          endDate: endDateStr,
+          period: 'day',
+        );
+      }
+
+      // Calculate analytics locally
       final overallAnalytics = await calculateOverallAnalytics(
         attendanceProvider,
         groupsProvider,
@@ -226,6 +241,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
     final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
     final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final analyticsProvider = Provider.of<AnalyticsProvider>(context);
 
     final filteredGroups = filterGroups(
       _groupAnalytics,
@@ -279,7 +295,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
       drawer: drawerWidget,
       body: RefreshIndicator(
         onRefresh: _loadAnalytics,
-        child: _isLoading
+        child: _isLoading || analyticsProvider.isLoading
             ? _buildSkeletonLoader()
             : _analyticsData == null
                 ? _buildErrorState()
@@ -398,7 +414,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
                                               ),
                                             );
                                             if (saved == true) {
-                                              await _loadAnalytics();
+                                              await attendanceProvider.fetchAttendance(groupId: group.id, date: dateStr, forceRefresh: true);
+                                              await _loadAnalytics(); // Refresh analytics after attendance update
                                             }
                                           },
                                         );

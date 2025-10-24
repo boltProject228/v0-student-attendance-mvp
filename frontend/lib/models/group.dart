@@ -1,18 +1,18 @@
-import 'package:hive/hive.dart'; // NEW
+import 'package:hive/hive.dart';
 
-part 'group.g.dart'; // NEW
+part 'group.g.dart';
 
-@HiveType(typeId: 1) // NEW
+@HiveType(typeId: 1)
 class Group {
-  @HiveField(0) // NEW
-  final String id;
-  @HiveField(1) // NEW
+  @HiveField(0)
+  final String id; // Custom id, fallback to _id if needed
+  @HiveField(1)
   final String name;
-  @HiveField(2) // NEW
+  @HiveField(2)
   final String specialty;
-  @HiveField(3) // NEW
+  @HiveField(3)
   final int course;
-  @HiveField(4) // NEW
+  @HiveField(4)
   final DateTime createdAt;
 
   Group({
@@ -25,10 +25,10 @@ class Group {
 
   factory Group.fromJson(Map<String, dynamic> json) {
     return Group(
-      id: json['_id'] ?? json['id'] ?? '',
+      id: json['id'] ?? json['_id']?? '',
       name: json['name'] ?? '',
       specialty: json['specialty'] ?? '',
-      course: json['course'] ?? 1,
+      course: (json['course'] as num?)?.toInt() ?? 1,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : DateTime.now(),
@@ -37,7 +37,7 @@ class Group {
 
   Map<String, dynamic> toJson() {
     return {
-      '_id': id,
+      'id': id, // Send custom id
       'name': name,
       'specialty': specialty,
       'course': course,

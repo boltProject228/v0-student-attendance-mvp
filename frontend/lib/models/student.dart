@@ -1,16 +1,16 @@
-import 'package:hive/hive.dart'; // NEW
+import 'package:hive/hive.dart';
 
-part 'student.g.dart'; // NEW
+part 'student.g.dart';
 
-@HiveType(typeId: 2) // NEW
+@HiveType(typeId: 2)
 class Student {
-  @HiveField(0) // NEW
-  final String id;
-  @HiveField(1) // NEW
+  @HiveField(0)
+  final String id; // Will use _id or id from JSON
+  @HiveField(1)
   final String fullName;
-  @HiveField(2) // NEW
+  @HiveField(2)
   final String groupId;
-  @HiveField(3) // NEW
+  @HiveField(3)
   final DateTime createdAt;
 
   Student({
@@ -22,7 +22,7 @@ class Student {
 
   factory Student.fromJson(Map<String, dynamic> json) {
     return Student(
-      id: json['_id'] ?? json['id'] ?? '',
+      id: (json['_id'] ?? json['id']) as String? ?? '', // Handle both _id and id
       fullName: json['fullName'] ?? '',
       groupId: json['groupId'] ?? '',
       createdAt: json['createdAt'] != null
@@ -33,7 +33,7 @@ class Student {
 
   Map<String, dynamic> toJson() {
     return {
-      '_id': id,
+      '_id': id, // Send _id to server
       'fullName': fullName,
       'groupId': groupId,
       'createdAt': createdAt.toIso8601String(),

@@ -1,8 +1,7 @@
-import 'package:attendance_system/data/mock_data.dart';
+import 'package:attendance_system/widgets/teacher/teacher_home_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-
 import '../../providers/auth_provider.dart';
 import '../../providers/groups_provider.dart';
 import '../../providers/attendance_provider.dart';
@@ -43,16 +42,22 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
   @override
   void initState() {
     super.initState();
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    authProvider.checkAuth().then((isAuth) {
-      if (!isAuth) {
-        Navigator.pushReplacementNamed(context, '/login');
-      } else {
-        Provider.of<GroupsProvider>(context, listen: false).fetchGroups();
-        Provider.of<AttendanceProvider>(context, listen: false).fetchStudents();
-        Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance();
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
     });
+  }
+
+  Future<void> _loadData({String? selectedGroupId}) async {
+    final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+    await groupsProvider.fetchGroups();
+    await attendanceProvider.fetchStudents();
+    final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    await attendanceProvider.fetchAttendance(
+      groupId: selectedGroupId ?? groupsProvider.groups.firstOrNull?.id,
+      date: dateStr,
+    );
+    if (mounted) setState(() {});
   }
 
   String normalize(String input) {
@@ -66,9 +71,7 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
       'Ң': 'Н',
       'І': 'И',
     };
-    map.forEach((key, value) {
-      normalized = normalized.replaceAll(key, value);
-    });
+    map.forEach((key, value) => normalized = normalized.replaceAll(key, value));
     return normalized.trim();
   }
 
@@ -77,14 +80,11 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
     return groups.where((group) {
       final groupName = normalize(group.name);
       final specialty = normalize(group.specialty);
-
       final matchesSearch = groupName.contains(normalizedQuery) ||
           students.any((s) => s.groupId == group.id && normalize(s.fullName).contains(normalizedQuery));
-
       final matchesCourse = _selectedCourse == 'Все' || group.course.toString() == _selectedCourse;
       final matchesSpecialty = _selectedSpecialty == 'Все' || specialty.contains(normalize(_selectedSpecialty));
       final matchesChip = _selectedGroupId == null || _selectedGroupId == group.id;
-
       return matchesSearch && matchesCourse && matchesSpecialty && matchesChip;
     }).toList();
   }
@@ -101,7 +101,6 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
 
     final filteredGroups = _filteredGroups(groupsProvider.groups, attendanceProvider.students);
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    final mockGroups = MockData.mockGetGroups();
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Scaffold(
@@ -110,17 +109,13 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
       drawer: const HeadHomeDrawer(),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () async {
-            await Provider.of<GroupsProvider>(context, listen: false).fetchGroups();
-            await Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance();
-          },
+          onRefresh: _loadData,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
                 if (isMobile)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -161,7 +156,6 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
                       ),
                     ],
                   ),
-
                 const SizedBox(height: 24),
                 const Align(
                   alignment: Alignment.centerLeft,
@@ -171,21 +165,20 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-
                 if (groupsProvider.groups.isNotEmpty)
                   SizedBox(
                     height: 50,
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: mockGroups.map((group) {
+                        children: groupsProvider.groups.map((group) {
                           return Padding(
                             padding: const EdgeInsets.only(right: 8.0),
                             child: ActionChip(
                               label: FittedBox(
                                 fit: BoxFit.scaleDown,
                                 child: Text(
-                                  group.name,
+                                  group.name.isEmpty ? 'Unknown' : group.name,
                                   style: const TextStyle(
                                     color: Colors.blue,
                                     fontWeight: FontWeight.w600,
@@ -193,13 +186,20 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
                                 ),
                               ),
                               backgroundColor: Colors.blue.shade100,
-                              onPressed: () {
-                                Navigator.push(
+                              onPressed: () async {
+                                setState(() => _selectedGroupId = group.id);
+                                final result = await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => AttendanceScreen(group: group),
                                   ),
                                 );
+                                if (result == true) {
+                                  await attendanceProvider.fetchAttendance(
+                                    groupId: group.id,
+                                    date: dateStr,
+                                  );
+                                }
                               },
                             ),
                           );
@@ -207,77 +207,93 @@ class _HeadHomeScreenState extends State<HeadHomeScreen> {
                       ),
                     ),
                   ),
-
                 const SizedBox(height: 24),
                 const Text(
                   'Группы',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-
-                filteredGroups.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text(
-                            'Группы не найдены',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                if (groupsProvider.isLoading || attendanceProvider.isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else if (groupsProvider.error != null || attendanceProvider.error != null)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Ошибка: ${groupsProvider.error ?? attendanceProvider.error}',
+                            style: const TextStyle(fontSize: 16, color: Colors.red),
                           ),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: _loadData,
+                            child: const Text('Повторить попытку'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (filteredGroups.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text(
+                        'Группы не найдены',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ),
+                  )
+                else
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth;
+                      int crossAxisCount = 1;
+                      if (width > 1200) crossAxisCount = 3;
+                      else if (width > 800) crossAxisCount = 2;
+                      return GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(bottom: 20),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 32,
+                          mainAxisExtent: 260,
                         ),
-                      )
-                    : LayoutBuilder(
-                        builder: (context, constraints) {
-                          final width = constraints.maxWidth;
-                          int crossAxisCount = 1;
-
-                          if (width > 1200) {
-                            crossAxisCount = 3;
-                          } else if (width > 800) {
-                            crossAxisCount = 2;
-                          }
-
-                          return GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            padding: const EdgeInsets.only(bottom: 20),
-                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 32,
-                              mainAxisExtent: 260,
-                            ),
-                            itemCount: filteredGroups.length,
-                            itemBuilder: (context, index) {
-                              final group = filteredGroups[index];
-                              final studentCount = attendanceProvider.getGroupStudentCount(group.id);
-                              final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
-
-                              return GroupCard(
-                                group: group,
-                                studentCount: studentCount,
-                                markedCount: stats['marked'] ?? 0,
-                                presentCount: stats['present'] ?? 0,
-                                absentCount: stats['absent'] ?? 0,
-                                sickCount: stats['sick'] ?? 0,
-                                ithubCount: stats['ithub'] ?? 0,
-                                onTap: () async {
-                                  final result = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => AttendanceScreen(group: group),
-                                    ),
-                                  );
-
-                                  if (result == true) {
-                                    final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
-                                    await attendanceProvider.fetchAttendance(groupId: group.id, date: dateStr); // Use selected dateStr
-                                  }
-                                },
+                        itemCount: filteredGroups.length,
+                        itemBuilder: (context, index) {
+                          final group = filteredGroups[index];
+                          final studentCount = attendanceProvider.getGroupStudentCount(group.id);
+                          final stats = attendanceProvider.getGroupAttendanceStats(group.id, dateStr);
+                          return GroupCard(
+                            group: group,
+                            studentCount: studentCount,
+                            markedCount: stats['marked'] ?? 0,
+                            presentCount: stats['present'] ?? 0,
+                            absentCount: stats['absent'] ?? 0,
+                            sickCount: stats['sick'] ?? 0,
+                            ithubCount: stats['ithub'] ?? 0,
+                            onTap: () async {
+                              setState(() => _selectedGroupId = group.id);
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => AttendanceScreen(group: group),
+                                ),
                               );
+                              if (result == true) {
+                                await attendanceProvider.fetchAttendance(
+                                  groupId: group.id,
+                                  date: dateStr,
+                                );
+                              }
                             },
                           );
                         },
-                      ),
+                      );
+                    },
+                  ),
               ],
             ),
           ),

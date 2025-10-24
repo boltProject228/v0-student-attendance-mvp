@@ -4,30 +4,31 @@ class AttendanceTile extends StatelessWidget {
   final String name;
   final int index;
   final String status;
+  final String attId; // Добавляем attId для передачи идентификатора записи
   final Function(String) onStatusChange;
   final bool isMobile;
-  // NOTE: Для полноценного редактирования истории, сюда должна передаваться дата,
-  // которую редактируем, но для текущей задачи используем DateTime.now()
 
   const AttendanceTile({
     super.key,
     required this.name,
     required this.index,
     required this.status,
+    required this.attId,
     required this.onStatusChange,
     this.isMobile = false,
   });
 
-  // --- КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: ПРОВЕРКА ДНЯ НЕДЕЛИ ---
+  // Проверка, является ли день будним (понедельник-пятница)
   bool _isWeekday(DateTime date) {
     final dayOfWeek = date.weekday;
-    // Monday (1) through Friday (5)
     return dayOfWeek >= DateTime.monday && dayOfWeek <= DateTime.friday;
   }
-  // --------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
+    final currentDateTime = DateTime.now(); // 08:26 AM +05, пятница, 24 октября 2025
+    final isEditable = _isWeekday(currentDateTime);
+
     return Card(
       elevation: 1,
       margin: EdgeInsets.only(bottom: isMobile ? 8.0 : 10.0),
@@ -125,10 +126,10 @@ class AttendanceTile extends StatelessWidget {
 
   Widget _statusButton(String value, String label, Color color) {
     final isSelected = status == value;
-    final bool isEditable = _isWeekday(DateTime.now()); // Проверка текущего дня
+    final isEditable = _isWeekday(DateTime.now()); // Проверка текущего дня
 
     return GestureDetector(
-      onTap: isEditable ? () => onStatusChange(value) : null, // Отключаем onTap, если не будний день
+      onTap: isEditable ? () => onStatusChange(value) : null, // Отключаем, если не будний день
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 10.0, vertical: isMobile ? 4.0 : 6.0),
@@ -142,10 +143,9 @@ class AttendanceTile extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            // Цвет текста серый, если редактирование запрещено
             color: isEditable
                 ? (isSelected ? Colors.white : Colors.black87)
-                : Colors.grey,
+                : Colors.grey, // Серый цвет, если редактирование запрещено
             fontWeight: FontWeight.w600,
             fontSize: isMobile ? 11 : 12,
           ),

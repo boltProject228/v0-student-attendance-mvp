@@ -1,14 +1,21 @@
+// frontend/lib/screens/admin/export_screen.dart
 import 'package:attendance_system/providers/auth_provider.dart';
+import 'package:attendance_system/screens/analytics/models/academic_range.dart';
+import 'package:attendance_system/screens/analytics/logic/date_ranges.dart'; // ✅ путь к твоему файлу
+import 'package:attendance_system/screens/analytics/widgets/date_filter_bar.dart';
 import 'package:attendance_system/widgets/admin/admin_home_drawer.dart';
+import 'package:attendance_system/widgets/head/head_home_drawer.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:excel/excel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import '../../models/group.dart';
 import '../../models/student.dart';
 import '../../providers/attendance_provider.dart';
 import '../../providers/groups_provider.dart';
-import '../../widgets/head/head_home_drawer.dart';
 
 class ExportScreen extends StatefulWidget {
   const ExportScreen({super.key});
@@ -26,8 +33,6 @@ class _ExportScreenState extends State<ExportScreen> {
   String? _selectedGroupId;
   Map<String, List<Student>> _groupStudents = {};
   Map<String, Map<String, Map<String, String>>> _attendanceStatus = {};
-
-  
 
   @override
   void initState() {
@@ -90,7 +95,6 @@ class _ExportScreenState extends State<ExportScreen> {
                       ? 'Уважительная'
                       : 'Не отмечено';
     }
-    
     return statuses;
   }
 
@@ -99,27 +103,107 @@ class _ExportScreenState extends State<ExportScreen> {
     for (var date = start;
         date.isBefore(end.add(const Duration(days: 1)));
         date = date.add(const Duration(days: 1))) {
-      dates.add(DateFormat('yyyy-MM-dd').format(date));
+      // исключаем выходные
+      if (date.weekday >= DateTime.monday && date.weekday <= DateTime.friday) {
+        dates.add(DateFormat('yyyy-MM-dd').format(date));
+      }
     }
     return dates;
   }
 
-  void _exportToExcel() {
-    // Заглушка для экспорта
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Экспорт в Excel (заглушка)')),
-    );
-    // В будущем: использовать пакет excel
-    // Формат: Группа | Студент | Дата | Статус
+  Future<void> _exportToExcel() async {
+  setState(() => _isLoading = true);
+  try {
+    final excel = Excel.createExcel();
+    final sheet = excel['Sheet1'];
+
+    // ✅ Заголовки (теперь через TextCellValue)
+    sheet.appendRow([
+      TextCellValue('Группа'),
+      TextCellValue('Студент'),
+      TextCellValue('Дата'),
+      TextCellValue('Статус'),
+    ]);
+
+    // Фильтр по выбранной группе
+    final filteredGroups =
+        _selectedGroupId == null ? _groups : [_groups.firstWhere((g) => g.id == _selectedGroupId)];
+
+    for (var group in filteredGroups) {
+      final students = _groupStudents[group.id] ?? [];
+      for (var student in students) {
+        final statuses = _attendanceStatus[group.id]?[student.id] ?? {};
+        final dates = _isRange
+            ? _generateDateRange(_startDate!, _endDate!)
+            : [DateFormat('yyyy-MM-dd').format(_startDate!)];
+
+        for (var date in dates) {
+          final status = statuses[date] ?? 'Не отмечено';
+
+          // ✅ Каждое значение теперь TextCellValue
+          sheet.appendRow([
+            TextCellValue(group.name),
+            TextCellValue(student.fullName),
+            TextCellValue(DateFormat('dd.MM.yyyy').format(DateTime.parse(date))),
+            TextCellValue(status),
+          ]);
+        }
+      }
+    }
+
+    // Сохранение файла
+    final directory = await getTemporaryDirectory();
+    final file = File(
+        '${directory.path}/attendance_export_${DateTime.now().millisecondsSinceEpoch}.xlsx');
+    final bytes = excel.encode();
+    await file.writeAsBytes(bytes!);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Excel файл сохранён во временную директорию'),
+          action: SnackBarAction(
+            label: 'Открыть',
+            onPressed: () {},
+          ),
+        ),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Ошибка экспорта: $e')));
+    }
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
+
+
+  void _onFixedRangeSelected(AcademicRange? range) {
+    if (range != null) {
+      setState(() {
+        _startDate = range.startDate;
+        _endDate = range.endDate;
+        _isRange = range.endDate != null;
+      });
+      _loadData();
+    }
+  }
+
+  void _onManualRangeSelected(DateTime start, DateTime? end) {
+    setState(() {
+      _startDate = start;
+      _endDate = end;
+      _isRange = end != null;
+    });
+    _loadData();
   }
 
   @override
   Widget build(BuildContext context) {
-    final dates = _isRange
-        ? _generateDateRange(_startDate!, _endDate!)
-        : [DateFormat('dd.MM.yyyy').format(_startDate!)];
-    
-     final authProvider = Provider.of<AuthProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
+    final fixedRanges = generateFixedRanges(); // ✅ исправлено
 
     Widget? drawerWidget;
     if (authProvider.isHead) {
@@ -152,82 +236,16 @@ class _ExportScreenState extends State<ExportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Фильтр по датам
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                icon: const Icon(Icons.calendar_today, size: 20),
-                                label: Text(
-                                  _isRange
-                                      ? '${_startDate != null ? DateFormat('dd.MM.yyyy').format(_startDate!) : 'Выберите'} - ${_endDate != null ? DateFormat('dd.MM.yyyy').format(_endDate!) : 'Выберите'}'
-                                      : _startDate != null
-                                          ? DateFormat('dd.MM.yyyy').format(_startDate!)
-                                          : 'Выберите дату',
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  backgroundColor: Colors.blue.shade600,
-                                  foregroundColor: Colors.white,
-                                ),
-                                onPressed: () async {
-                                  if (_isRange) {
-                                    final pickedRange = await showDateRangePicker(
-                                      context: context,
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime.now(),
-                                      builder: (context, child) {
-                                        return Theme(
-                                          data: ThemeData.light().copyWith(
-                                            colorScheme: ColorScheme.light(
-                                              primary: Colors.blue.shade600,
-                                              onPrimary: Colors.white,
-                                              surface: Colors.white,
-                                              onSurface: Colors.black,
-                                            ), dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
-                                          ),
-                                          child: child!,
-                                        );
-                                      },
-                                    );
-                                    if (pickedRange != null) {
-                                      setState(() {
-                                        _startDate = pickedRange.start;
-                                        _endDate = pickedRange.end;
-                                      });
-                                      _loadData();
-                                    }
-                                  } else {
-                                    final picked = await showDatePicker(
-                                      context: context,
-                                      initialDate: _startDate ?? DateTime.now(),
-                                      firstDate: DateTime(2000),
-                                      lastDate: DateTime.now(),
-                                    );
-                                    if (picked != null) {
-                                      setState(() => _startDate = picked);
-                                      _loadData();
-                                    }
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Switch(
-                              value: _isRange,
-                              onChanged: (value) {
-                                setState(() {
-                                  _isRange = value;
-                                  if (!value) _endDate = null;
-                                });
-                                _loadData();
-                              },
-                            ),
-                            const Text('Диапазон'),
-                          ],
+                        DateFilterBar(
+                          isMobile: MediaQuery.of(context).size.width < 600,
+                          startDate: _startDate,
+                          endDate: _endDate,
+                          isRange: _isRange,
+                          fixedRanges: fixedRanges,
+                          onFixedRangeSelected: _onFixedRangeSelected,
+                          onManualRangeSelected: _onManualRangeSelected,
                         ),
                         const SizedBox(height: 16),
-                        // Фильтр по группам
                         DropdownButtonFormField<String>(
                           decoration: InputDecoration(
                             labelText: 'Группа',
@@ -251,7 +269,6 @@ class _ExportScreenState extends State<ExportScreen> {
                           },
                         ),
                         const SizedBox(height: 24),
-                        // Кнопка экспорта
                         ElevatedButton.icon(
                           icon: const Icon(Icons.download),
                           label: const Text('Экспорт в Excel'),
@@ -263,7 +280,6 @@ class _ExportScreenState extends State<ExportScreen> {
                           onPressed: _exportToExcel,
                         ),
                         const SizedBox(height: 24),
-                        // Список групп и студентов
                         const Text(
                           'Данные по группам',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -274,7 +290,9 @@ class _ExportScreenState extends State<ExportScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _selectedGroupId == null ? _groups.length : 1,
                           itemBuilder: (context, index) {
-                            final group = _selectedGroupId == null ? _groups[index] : _groups.firstWhere((g) => g.id == _selectedGroupId);
+                            final group = _selectedGroupId == null
+                                ? _groups[index]
+                                : _groups.firstWhere((g) => g.id == _selectedGroupId);
                             final students = _groupStudents[group.id] ?? [];
                             return Card(
                               elevation: 4,
@@ -289,29 +307,51 @@ class _ExportScreenState extends State<ExportScreen> {
                                 children: students.map((student) {
                                   return ExpansionTile(
                                     title: Text(student.fullName),
-                                    children: dates.map((date) {
-                                      final formattedDate = _isRange
-                                          ? DateFormat('dd.MM.yyyy').format(DateTime.parse(date))
-                                          : date;
-                                      final status = _attendanceStatus[group.id]?[student.id]?[date] ?? 'Не отмечено';
-                                      return ListTile(
-                                        title: Text(formattedDate),
-                                        trailing: Text(
-                                          status,
-                                          style: TextStyle(
-                                            color: status == 'Присутствует'
-                                                ? Colors.green
-                                                : status == 'Отсутствует'
-                                                    ? Colors.red
-                                                    : status == 'Больничный'
-                                                        ? Colors.blue
-                                                        : status == 'Уважительная'
-                                                            ? Colors.orange
-                                                            : Colors.grey,
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
+                                    children: _isRange
+                                        ? _generateDateRange(_startDate!, _endDate!).map((date) {
+                                            final formattedDate = DateFormat('dd.MM.yyyy').format(DateTime.parse(date));
+                                            final status =
+                                                _attendanceStatus[group.id]?[student.id]?[date] ?? 'Не отмечено';
+                                            return ListTile(
+                                              title: Text(formattedDate),
+                                              trailing: Text(
+                                                status,
+                                                style: TextStyle(
+                                                  color: status == 'Присутствует'
+                                                      ? Colors.green
+                                                      : status == 'Отсутствует'
+                                                          ? Colors.red
+                                                          : status == 'Больничный'
+                                                              ? Colors.blue
+                                                              : status == 'Уважительная'
+                                                                  ? Colors.orange
+                                                                  : Colors.grey,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList()
+                                        : [DateFormat('yyyy-MM-dd').format(_startDate!)].map((date) {
+                                            final formattedDate = DateFormat('dd.MM.yyyy').format(DateTime.parse(date));
+                                            final status =
+                                                _attendanceStatus[group.id]?[student.id]?[date] ?? 'Не отмечено';
+                                            return ListTile(
+                                              title: Text(formattedDate),
+                                              trailing: Text(
+                                                status,
+                                                style: TextStyle(
+                                                  color: status == 'Присутствует'
+                                                      ? Colors.green
+                                                      : status == 'Отсутствует'
+                                                          ? Colors.red
+                                                          : status == 'Больничный'
+                                                              ? Colors.blue
+                                                          : status == 'Уважительная'
+                                                              ? Colors.orange
+                                                              : Colors.grey,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
                                   );
                                 }).toList(),
                               ),
@@ -334,17 +374,9 @@ class _ExportScreenState extends State<ExportScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: double.infinity,
-              height: 50,
-              color: Colors.white,
-            ),
+            Container(width: double.infinity, height: 50, color: Colors.white),
             const SizedBox(height: 24),
-            Container(
-              width: 150,
-              height: 20,
-              color: Colors.white,
-            ),
+            Container(width: 150, height: 20, color: Colors.white),
             const SizedBox(height: 16),
             Column(
               children: List.generate(3, (index) {
@@ -368,10 +400,8 @@ class _ExportScreenState extends State<ExportScreen> {
         children: [
           const Icon(Icons.error_outline, size: 64, color: Colors.red),
           const SizedBox(height: 16),
-          const Text(
-            'Не удалось загрузить данные',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
-          ),
+          const Text('Не удалось загрузить данные',
+              style: TextStyle(fontSize: 16, color: Colors.grey)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadData,

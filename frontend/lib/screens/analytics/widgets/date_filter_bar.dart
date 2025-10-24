@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/academic_range.dart';
-import '../logic/date_ranges.dart';
 
 class DateFilterBar extends StatelessWidget {
   final bool isMobile;

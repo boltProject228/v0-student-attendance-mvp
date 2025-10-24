@@ -57,7 +57,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
             Tab(text: 'Студенты'),
           ],
           labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        ), actions: [],
       ),
       drawer: const AdminHomeDrawer(),
       body: TabBarView(

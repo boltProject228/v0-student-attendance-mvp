@@ -10,13 +10,14 @@ class AttendanceProvider with ChangeNotifier {
   List<Student> _students = [];
   bool _isLoading = false;
   String? _error;
+  String? _selectedGroupId; // Для отслеживания выбранной группы
 
   List<Attendance> get attendanceList => _attendanceList;
   List<Student> get students => _students;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  String? get selectedGroupId => _selectedGroupId;
 
-  // 🚀 ИСПРАВЛЕНИЕ: Добавлен метод fetchStudents
   Future<void> fetchStudents() async {
     _isLoading = true;
     _error = null;
@@ -26,90 +27,92 @@ class AttendanceProvider with ChangeNotifier {
       final cachedStudents = HiveService.getStudents();
       if (cachedStudents != null) {
         _students = cachedStudents;
-        // Продолжаем, чтобы проверить, нужно ли обновить кэш в фоне
+      } else {
+        final data = await ApiService.getStudents();
+        _students = (data as List<dynamic>).map((json) => Student.fromJson(json as Map<String, dynamic>)).toList();
+        await HiveService.saveStudents(_students);
       }
 
-      final data = await ApiService.getStudents();
-      final newStudents = data.map((json) => Student.fromJson(json)).toList();
-
-      if (cachedStudents == null || newStudents.length != _students.length || newStudents.any((s) => !_students.any((existing) => existing.id == s.id))) {
-        _students = newStudents;
-        await HiveService.saveStudents(_students); 
-      }
-      
       _isLoading = false;
       notifyListeners();
+      print('Fetched students: ${_students.length}');
     } catch (e) {
-      // Если запрос падает, и у нас есть кэшированные данные, мы их сохраняем
-      if (_students.isEmpty) {
-        _error = e.toString();
-      }
+      _error = 'Failed to load students: $e';
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // 🚀 ОБНОВЛЕННЫЙ МЕТОД: fetchAttendance с логированием и улучшенным кэшированием
   Future<void> fetchAttendance({
     String? groupId,
     String? date,
     bool forceRefresh = false,
   }) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
-
-    final cacheKey = groupId != null && date != null 
-        ? 'attendance_${groupId}_$date' 
-        : 'attendance_all';
-
-    if (!forceRefresh) {
-      final cachedData = HiveService.getGeneric<List<Attendance>>(cacheKey);
-      if (cachedData != null) {
-        print('Using cached attendance for key: $cacheKey, count: ${cachedData.length}');
-        if (groupId != null || date != null) {
-          // Merge with existing list
-          _attendanceList.removeWhere((a) => 
-            (groupId == null || a.groupId == groupId) &&
-            (date == null || a.date.toIso8601String().split('T')[0] == date)
-          );
-          _attendanceList.addAll(cachedData);
-        } else {
-          _attendanceList = cachedData;
-        }
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
+    if (groupId == null) {
+      _error = 'No group selected for attendance fetch';
+      print('AttendanceProvider: No groupId provided');
+      notifyListeners();
+      return;
     }
 
+    _isLoading = true;
+    _error = null;
+    _selectedGroupId = groupId;
+    notifyListeners();
+
     try {
-      print('Fetching attendance from API: groupId=$groupId, date=$date');
-      final data = await ApiService.getAttendance(groupId: groupId, date: date);
-      print('API returned ${data.length} attendance records');
-      
-      final newAttendances = data.map((json) => Attendance.fromJson(json)).toList();
-
-      if (groupId != null || date != null) {
-        _attendanceList.removeWhere((a) {
-          bool matchGroup = groupId == null || a.groupId == groupId;
-          bool matchDate = date == null || a.date.toIso8601String().split('T')[0] == date;
-          return matchGroup && matchDate;
-        });
-        _attendanceList.addAll(newAttendances);
-      } else {
-        _attendanceList = newAttendances;
+      print('Fetching attendance from API: groupId=$groupId, date=$date at ${DateTime.now()}');
+      List<Attendance>? cachedData;
+      if (!forceRefresh) {
+        cachedData = await HiveService.getAttendanceForGroup(groupId);
       }
+      final data = cachedData ?? await ApiService.getAttendance(groupId: groupId, date: date);
 
-      print('Saving to Hive with key: $cacheKey, count: ${newAttendances.length}');
-      // Важно: сохраняем newAttendances, а не _attendanceList, для точного кэша
-      await HiveService.saveGeneric(cacheKey, newAttendances, const Duration(hours: 1)); 
-      await HiveService.saveAttendance(_attendanceList); // Update main cache
-      _isLoading = false;
-      notifyListeners();
+      if (data is List) {
+        final newAttendances = <Attendance>[];
+        for (var item in data) {
+          if (item is Map<String, dynamic>) {
+            try {
+              final attendance = Attendance.fromJson(item);
+              if (attendance.groupId == groupId && (date == null || attendance.date.toIso8601String().split('T')[0] == date)) {
+                newAttendances.add(attendance);
+              }
+            } catch (e) {
+              print('Error parsing attendance item: $e, skipping item: $item');
+            }
+          } else {
+            print('Unexpected attendance data type: ${item.runtimeType}, using fallback');
+            newAttendances.add(Attendance(
+              id: 'unknown_id_${DateTime.now().millisecondsSinceEpoch}',
+              studentId: '',
+              groupId: groupId,
+              date: DateTime.now(),
+              status: 'unmarked',
+              updatedBy: '',
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+              updatedByName: null,
+              updatedByRole: null,
+            ));
+          }
+        }
+
+        // Удаляем старые записи только для указанной даты и группы
+        if (date != null) {
+          _attendanceList.removeWhere((a) => a.groupId == groupId && a.date.toIso8601String().split('T')[0] == date);
+        }
+        _attendanceList.addAll(newAttendances.where((a) => !_attendanceList.any((existing) => existing.id == a.id)));
+
+        await HiveService.saveAttendance(_attendanceList);
+        print('API returned ${newAttendances.length} attendance records for group $groupId at ${DateTime.now()}');
+      } else {
+        print('Unexpected API response format for attendance: ${data.runtimeType}');
+        _error = 'Invalid API response format: Expected List, got ${data.runtimeType}';
+      }
     } catch (e) {
-      print('Fetch attendance error: $e');
+      print('Fetch attendance error: $e at ${DateTime.now()}');
       _error = e.toString();
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -119,10 +122,13 @@ class AttendanceProvider with ChangeNotifier {
     try {
       final resp = await ApiService.createAttendance(data);
       final newId = resp['_id'] ?? resp['id'];
+      if (newId != null) {
+        await fetchAttendance(groupId: data['groupId'], date: data['date'], forceRefresh: true);
+      }
       return newId;
     } catch (e) {
       _error = e.toString();
-      print('Create attendance error: $_error');
+      print('Create attendance error: $_error at ${DateTime.now()}');
       notifyListeners();
       return null;
     }
@@ -131,6 +137,7 @@ class AttendanceProvider with ChangeNotifier {
   Future<bool> updateAttendance(String id, Map<String, dynamic> data) async {
     try {
       await ApiService.updateAttendance(id, data);
+      await fetchAttendance(groupId: data['groupId'], date: data['date'], forceRefresh: true);
       return true;
     } catch (e) {
       if (e is DioException && e.response?.statusCode == 409) {
@@ -138,7 +145,7 @@ class AttendanceProvider with ChangeNotifier {
       } else {
         _error = e.toString();
       }
-      print('Update attendance error: $_error');
+      print('Update attendance error: $_error at ${DateTime.now()}');
       notifyListeners();
       return false;
     }
@@ -146,6 +153,7 @@ class AttendanceProvider with ChangeNotifier {
 
   Future<bool> deleteAttendance(String id) async {
     try {
+      final attendance = _attendanceList.firstWhere((a) => a.id == id);
       await ApiService.deleteAttendance(id);
       _attendanceList.removeWhere((a) => a.id == id);
       await HiveService.saveAttendance(_attendanceList);
@@ -153,22 +161,18 @@ class AttendanceProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _error = e.toString();
-      print('Delete attendance error: $_error');
+      print('Delete attendance error: $_error at ${DateTime.now()}');
       notifyListeners();
       return false;
     }
   }
 
-  Future<Map<String, Map<String, String>>> getAttendances(String groupId, String date) async {
-    // Вызов fetchAttendance здесь корректен, так как он использует кэш или принудительно обновляется в AttendanceScreen
-    await fetchAttendance(groupId: groupId, date: date); 
-    Map<String, Map<String, String>> attendances = {};
-    for (var att in _attendanceList) {
-      String attDate = att.date.toIso8601String().split('T')[0];
-      if (attDate == date && att.groupId == groupId && att.status.isNotEmpty) {
-        attendances[att.studentId] = {'status': att.status, 'id': att.id};
-      }
-    }
+  Future<List<Map<String, String>>> getAttendances(String groupId, String date) async {
+    await fetchAttendance(groupId: groupId, date: date, forceRefresh: false); // Используем кэш, если доступен
+    final attendances = _attendanceList
+        .where((a) => a.groupId == groupId && a.date.toIso8601String().split('T')[0] == date && a.status.isNotEmpty)
+        .map((a) => {'status': a.status, 'id': a.id})
+        .toList();
     return attendances;
   }
 
@@ -178,12 +182,14 @@ class AttendanceProvider with ChangeNotifier {
       orElse: () => Attendance(
         id: '',
         studentId: studentId,
-        groupId: '',
+        groupId: _selectedGroupId ?? '',
         date: DateTime.parse(date),
         status: 'unmarked',
         updatedBy: '',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        updatedByName: null,
+        updatedByRole: null,
       ),
     );
   }
@@ -192,13 +198,18 @@ class AttendanceProvider with ChangeNotifier {
     if (date.weekday == DateTime.saturday || date.weekday == DateTime.sunday) {
       _error = 'Нельзя редактировать отметки в выходные.';
       notifyListeners();
-      return; 
+      return;
     }
     if (id != null) {
       updateAttendance(id, data);
     } else {
       createAttendance(data);
     }
+  }
+
+  void setSelectedGroupId(String? groupId) {
+    _selectedGroupId = groupId;
+    notifyListeners();
   }
 }
 
@@ -213,12 +224,17 @@ extension AttendanceSummary on AttendanceProvider {
       'absent': 0,
       'sick': 0,
       'ithub': 0,
-      'marked': 0, 
+      'marked': 0,
     };
+
+    if (students.isEmpty) {
+      print('Warning: No students loaded for group $groupId');
+      return stats;
+    }
 
     final groupStudents = students.where((s) => s.groupId == groupId).toList();
     for (final student in groupStudents) {
-      final records = attendanceList
+      final records = _attendanceList
           .where((a) => a.studentId == student.id && a.date.toIso8601String().split('T')[0] == date)
           .toList();
       if (records.isNotEmpty) {
@@ -226,11 +242,13 @@ extension AttendanceSummary on AttendanceProvider {
         final status = last.status.isEmpty ? 'unmarked' : last.status;
         if (status != 'unmarked') {
           stats[status] = (stats[status] ?? 0) + 1;
-          // ✅ ИСПРАВЛЕНО: Любой статус, кроме 'unmarked', считается отмеченным
           stats['marked'] = (stats['marked'] ?? 0) + 1;
         }
+      } else {
+        stats['unmarked'] = (stats['unmarked'] ?? 0) + 1;
       }
     }
+    print('Stats for group $groupId on $date: $stats');
     return stats;
   }
 }

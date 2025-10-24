@@ -1,28 +1,24 @@
-2025/10/21-08:50:09.049 3b24 Reusing MANIFEST C:\Users\masal\AppData\Local\Temp\flutter_tools.b7d3437a\flutter_tools_chrome_device.6b272b48\Default\shared_proto_db/MANIFEST-000001
-2025/10/21-08:50:09.050 3b24 Recovering log #29
-2025/10/21-08:50:09.052 3b24 Reusing old log C:\Users\masal\AppData\Local\Temp\flutter_tools.b7d3437a\flutter_tools_chrome_device.6b272b48\Default\shared_proto_db/000029.log 
-2025/10/21-08:50:09.053 3b24 Delete type=0 #3
-2025/10/21-08:50:09.053 3b24 Delete type=0 #4
-2025/10/21-08:50:09.053 3b24 Delete type=0 #7
-2025/10/21-08:50:09.053 3b24 Delete type=2 #8
-2025/10/21-08:50:09.053 3b24 Delete type=0 #10
-2025/10/21-08:50:09.053 3b24 Delete type=2 #11
-2025/10/21-08:50:09.053 3b24 Delete type=0 #13
-2025/10/21-08:50:09.053 3b24 Delete type=2 #14
-2025/10/21-08:50:09.054 3b24 Delete type=0 #16
-2025/10/21-08:50:09.054 3b24 Delete type=2 #17
-2025/10/21-08:50:09.054 3b24 Delete type=0 #19
-2025/10/21-08:50:09.054 3b24 Delete type=0 #23
-2025/10/21-08:50:09.054 3b24 Delete type=0 #26
-2025/10/21-08:50:30.452 3ed0 Level-0 table #33: started
-2025/10/21-08:50:30.474 3ed0 Level-0 table #33: 137413 bytes OK
-2025/10/21-08:50:30.477 3ed0 Delete type=0 #29
-2025/10/21-08:50:30.477 3ed0 Compacting 4@0 + 1@1 files
-2025/10/21-08:50:30.487 3ed0 Generated table #34@0: 1898 keys, 168996 bytes
-2025/10/21-08:50:30.487 3ed0 Compacted 4@0 + 1@1 files => 168996 bytes
-2025/10/21-08:50:30.489 3ed0 compacted to: files[ 0 1 1 0 0 0 0 ]
-2025/10/21-08:50:30.490 3ed0 Delete type=2 #21
-2025/10/21-08:50:30.490 3ed0 Delete type=2 #24
-2025/10/21-08:50:30.490 3ed0 Delete type=2 #27
-2025/10/21-08:50:30.490 3ed0 Delete type=2 #30
-2025/10/21-08:50:30.490 3ed0 Delete type=2 #33
+2025/10/24-12:03:32.090 1608 Reusing MANIFEST C:\Users\masal\AppData\Local\Temp\flutter_tools.3299ab98\flutter_tools_chrome_device.4b8e576\Default\shared_proto_db/MANIFEST-000001
+2025/10/24-12:03:32.090 1608 Recovering log #32
+2025/10/24-12:03:32.092 1608 Reusing old log C:\Users\masal\AppData\Local\Temp\flutter_tools.3299ab98\flutter_tools_chrome_device.4b8e576\Default\shared_proto_db/000032.log 
+2025/10/24-12:03:32.093 1608 Delete type=0 #3
+2025/10/24-12:03:32.093 1608 Delete type=0 #4
+2025/10/24-12:03:32.093 1608 Delete type=0 #7
+2025/10/24-12:03:32.094 1608 Delete type=2 #8
+2025/10/24-12:03:32.094 1608 Delete type=0 #10
+2025/10/24-12:03:32.094 1608 Delete type=2 #11
+2025/10/24-12:03:32.094 1608 Delete type=0 #13
+2025/10/24-12:03:32.094 1608 Delete type=2 #14
+2025/10/24-12:03:32.094 1608 Delete type=0 #16
+2025/10/24-12:03:32.094 1608 Delete type=2 #17
+2025/10/24-12:03:32.094 1608 Delete type=0 #19
+2025/10/24-12:03:32.094 1608 Delete type=2 #21
+2025/10/24-12:03:32.094 1608 Delete type=0 #23
+2025/10/24-12:03:32.094 1608 Delete type=2 #24
+2025/10/24-12:03:32.094 1608 Delete type=0 #26
+2025/10/24-12:03:32.094 1608 Delete type=2 #27
+2025/10/24-12:03:32.094 1608 Delete type=0 #29
+2025/10/24-12:03:32.094 1608 Delete type=2 #30
+2025/10/24-12:03:51.340 18a0 Level-0 table #37: started
+2025/10/24-12:03:51.345 18a0 Level-0 table #37: 139701 bytes OK
+2025/10/24-12:03:51.348 18a0 Delete type=0 #32

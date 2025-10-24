@@ -1,4 +1,3 @@
-import 'package:attendance_system/data/mock_data.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -46,9 +45,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       if (!isAuth) {
         Navigator.pushReplacementNamed(context, '/login');
       } else {
-        Provider.of<GroupsProvider>(context, listen: false).fetchGroups();
-        Provider.of<AttendanceProvider>(context, listen: false).fetchStudents();
-        Provider.of<AttendanceProvider>(context, listen: false).fetchAttendance();
+        final groupsProvider = Provider.of<GroupsProvider>(context, listen: false);
+        final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
+        groupsProvider.fetchGroups();
+        attendanceProvider.fetchStudents();
+        attendanceProvider.fetchAttendance();
       }
     });
   }
@@ -95,16 +96,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     }
 
     final filteredGroups = _filteredGroups(groupsProvider.groups, attendanceProvider.students);
-    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final mockGroups = MockData.mockGetGroups();
+    final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.utc(2025, 10, 23, 5, 32)); // 10:32 AM +05
     final isMobile = MediaQuery.of(context).size.width < 600;
 
-    // 🧱 Вот тут мы оборачиваем Scaffold в PopScope
     return PopScope(
-      canPop: false, // 🚫 Блокируем возврат назад
-      onPopInvoked: (didPop) {
-        
-      },
+      canPop: false,
+      onPopInvoked: (didPop) {},
       child: Scaffold(
         backgroundColor: Colors.grey.shade50,
         appBar: buildTeacherHomeAppBar(context, authProvider),
@@ -176,7 +173,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
-                          children: mockGroups.map((group) {
+                          children: groupsProvider.groups.map((group) {
                             return Padding(
                               padding: const EdgeInsets.only(right: 8.0),
                               child: ActionChip(
@@ -261,7 +258,6 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                                       ),
                                     );
                                     if (result == true) {
-                                      final attendanceProvider = Provider.of<AttendanceProvider>(context, listen: false);
                                       await attendanceProvider.fetchAttendance(groupId: group.id, date: dateStr);
                                     }
                                   },

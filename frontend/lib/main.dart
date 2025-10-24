@@ -1,3 +1,4 @@
+// frontend/lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,7 @@ import 'screens/analytics/analytics_screen.dart';
 import 'screens/head/export_screen.dart';
 import 'screens/attendance_screen.dart';
 import 'screens/average_attendance_screen.dart';
+import 'screens/admin/import_screen.dart'; // Added import screen
 import 'services/hive_service.dart';
 
 Future<void> main() async {
@@ -133,6 +135,7 @@ class AuthGuard extends StatelessWidget {
     '/attendance': ['teacher', 'head'],
     '/analytics': ['admin', 'head'],
     '/export': ['admin', 'head'],
+    '/import': ['admin', 'head'], // Added import permission
     '/average_attendance': ['admin', 'head'],
   };
 
@@ -175,6 +178,8 @@ Widget _buildScreen(String route, dynamic args) {
       return const AnalyticsScreen();
     case '/export':
       return const ExportScreen();
+    case '/import': // Added import screen
+      return const ImportScreen();
     case '/average_attendance':
       return const AverageAttendanceScreen();
     default:

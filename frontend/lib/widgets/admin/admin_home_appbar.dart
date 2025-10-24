@@ -4,7 +4,7 @@ import '../../providers/auth_provider.dart';
 AppBar buildAdminHomeAppBar(
   BuildContext context,
   AuthProvider authProvider, {
-  PreferredSizeWidget? bottom,
+  PreferredSizeWidget? bottom, required List<IconButton> actions,
 }) {
   return AppBar(
     iconTheme: const IconThemeData(color: Colors.black, size: 28),
