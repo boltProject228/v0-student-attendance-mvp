@@ -1,0 +1,113 @@
+// frontend/lib/models/attendance.dart (Updated with new getters)
+
+import 'package:hive/hive.dart';
+
+part 'attendance.g.dart';
+
+@HiveType(typeId: 4)
+class Attendance {
+  @HiveField(0)
+  final String id;
+  @HiveField(1)
+  final String studentId;
+  @HiveField(2)
+  final String groupId;
+  @HiveField(3)
+  final DateTime date;
+  @HiveField(4)
+  final String status;
+  @HiveField(5)
+  final String updatedBy;
+  @HiveField(8)
+  final String? updatedByName;
+  @HiveField(9)
+  final String? updatedByRole;
+  @HiveField(6)
+  final DateTime createdAt;
+  @HiveField(7)
+  final DateTime updatedAt;
+
+  Attendance({
+    required this.id,
+    required this.studentId,
+    required this.groupId,
+    required this.date,
+    required this.status,
+    required this.updatedBy,
+    this.updatedByName,
+    this.updatedByRole,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory Attendance.fromJson(Map<String, dynamic> json) {
+    String updatedById = '';
+    String? updatedByName;
+    String? updatedByRole;
+
+    if (json['updatedBy'] is Map<String, dynamic>) {
+      final updatedByMap = json['updatedBy'] as Map<String, dynamic>;
+      updatedById = updatedByMap['_id']?.toString() ?? updatedByMap['id']?.toString() ?? '';
+      updatedByName = updatedByMap['fullName'] as String?;
+      updatedByRole = updatedByMap['role'] as String?;
+    } else {
+      updatedById = json['updatedBy']?.toString() ?? '';
+    }
+
+    return Attendance(
+      id: json['_id'] ?? json['id'] ?? '',
+      studentId: json['studentId'] ?? '',
+      groupId: json['groupId'] ?? '',
+      date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
+      status: json['status'] ?? 'unmarked',
+      updatedBy: updatedById,
+      updatedByName: updatedByName,
+      updatedByRole: updatedByRole,
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      '_id': id,
+      'studentId': studentId,
+      'groupId': groupId,
+      'date': date.toIso8601String(),
+      'status': status,
+      'updatedBy': updatedBy,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+    };
+  }
+
+  Attendance copyWith({
+    String? status,
+    String? updatedBy,
+    DateTime? updatedAt,
+  }) {
+    return Attendance(
+      id: id,
+      studentId: studentId,
+      groupId: groupId,
+      date: date,
+      status: status ?? this.status,
+      updatedBy: updatedBy ?? this.updatedBy,
+      updatedByName: updatedByName,
+      updatedByRole: updatedByRole,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  bool get isPresent => status == 'present';
+  bool get isAbsent => status == 'absent';
+  bool get isSick => status == 'sick';
+  bool get isIThub => status == 'ithub';
+  
+  // Посещено: Присутствует или IThub
+  bool get isAttended => isPresent || isIThub; 
+
+  // 🔑 НОВЫЙ ГЕТТЕР: Статус, исключаемый из расчета общего числа занятий.
+  bool get isExcludedFromTotal => isSick; 
+}

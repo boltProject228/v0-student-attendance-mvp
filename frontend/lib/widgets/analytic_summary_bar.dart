@@ -1,0 +1,76 @@
+import 'package:flutter/material.dart';
+
+class AnalyticSummaryBar extends StatelessWidget {
+  final int present;
+  final int absent;
+  final int sick;
+  final int ithub;
+  final int unmarked;
+  final VoidCallback? onSave; // Made nullable
+
+  const AnalyticSummaryBar({
+    super.key,
+    required this.present,
+    required this.absent,
+    required this.sick,
+    required this.ithub,
+    required this.unmarked,
+    this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Wrap(
+            spacing: 8,
+            children: [
+              // --- ИЗМЕНЕНИЕ: Объединены present и ithub в "Посетило" ---
+              _chip(Colors.green, 'Посетило ${present + ithub}'),
+              // ---------------------------------------------------------
+              _chip(Colors.red, 'Отсутствует $absent'),
+              _chip(Colors.orange, 'Больничный $sick'),
+              _chip(Colors.grey, 'Не отмечено $unmarked'),
+            ],
+          ),
+          if (onSave != null)
+            ElevatedButton(
+              onPressed: onSave,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text('Сохранить'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(Color color, String text) {
+    return Chip(
+      backgroundColor: color,
+      label: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}

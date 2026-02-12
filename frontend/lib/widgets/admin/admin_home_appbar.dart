@@ -1,0 +1,29 @@
+import 'package:flutter/material.dart';
+import '../../providers/auth_provider.dart';
+
+AppBar buildAdminHomeAppBar(
+  BuildContext context,
+  AuthProvider authProvider, {
+  PreferredSizeWidget? bottom, required List<IconButton> actions,
+}) {
+  return AppBar(
+    iconTheme: const IconThemeData(color: Colors.black, size: 28),
+    backgroundColor: Colors.white,
+    elevation: 0,
+    shape: const Border(bottom: BorderSide(color: Colors.grey, width: 0.2)),
+    title: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Управление посещаемостью',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+        Text(
+          'Админ – ${authProvider.user?.fullName ?? authProvider.user?.login ?? ''}',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+      ],
+    ),
+    bottom: bottom, // 👈 добавили поддержку TabBar
+  );
+}
