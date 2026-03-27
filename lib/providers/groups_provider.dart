@@ -1,26 +1,27 @@
 import 'package:flutter/material.dart';
+import '../data/mock_data.dart'; // NEW
 import '../models/group.dart';
-import '../models/subject.dart';
 import '../services/api_service.dart';
-import '../services/hive_service.dart'; // NEW
+import '../services/hive_service.dart';
 
 class GroupsProvider with ChangeNotifier {
   List<Group> _groups = [];
-  List<Subject> _subjects = [];
+
   bool _isLoading = false;
   String? _error;
 
   List<Group> get groups => _groups;
-  List<Subject> get subjects => _subjects;
+
   bool get isLoading => _isLoading;
   String? get error => _error;
+
+  static const bool useMock = true; // NEW
 
   Future<void> fetchGroups() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    // NEW: Проверяем кэш
     final cachedGroups = HiveService.getGroups();
     if (cachedGroups != null) {
       _groups = cachedGroups;
@@ -30,9 +31,14 @@ class GroupsProvider with ChangeNotifier {
     }
 
     try {
-      final data = await ApiService.getGroups();
+      List<dynamic> data;
+      if (useMock) {
+        data = MockData.mockGetGroups().map((g) => g.toJson()).toList();
+      } else {
+        data = await ApiService.getGroups();
+      }
       _groups = data.map((json) => Group.fromJson(json)).toList();
-      await HiveService.saveGroups(_groups); // Сохраняем в кэш
+      await HiveService.saveGroups(_groups);
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -42,23 +48,5 @@ class GroupsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> fetchSubjects() async {
-    // NEW: Проверяем кэш
-    final cachedSubjects = HiveService.getSubjects();
-    if (cachedSubjects != null) {
-      _subjects = cachedSubjects;
-      notifyListeners();
-      return;
-    }
-
-    try {
-      final data = await ApiService.getSubjects();
-      _subjects = data.map((json) => Subject.fromJson(json)).toList();
-      await HiveService.saveSubjects(_subjects); // Сохраняем
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
+ 
 }

@@ -20,19 +20,18 @@ class AttendanceAdapter extends TypeAdapter<Attendance> {
       id: fields[0] as String,
       studentId: fields[1] as String,
       groupId: fields[2] as String,
-      subjectId: fields[3] as String,
-      date: fields[4] as DateTime,
-      status: fields[5] as String,
-      updatedBy: fields[6] as String,
-      createdAt: fields[7] as DateTime,
-      updatedAt: fields[8] as DateTime,
+      date: fields[3] as DateTime,
+      status: fields[4] as String,
+      updatedBy: fields[5] as String,
+      createdAt: fields[6] as DateTime,
+      updatedAt: fields[7] as DateTime,
     );
   }
 
   @override
   void write(BinaryWriter writer, Attendance obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -40,16 +39,14 @@ class AttendanceAdapter extends TypeAdapter<Attendance> {
       ..writeByte(2)
       ..write(obj.groupId)
       ..writeByte(3)
-      ..write(obj.subjectId)
-      ..writeByte(4)
       ..write(obj.date)
-      ..writeByte(5)
+      ..writeByte(4)
       ..write(obj.status)
-      ..writeByte(6)
+      ..writeByte(5)
       ..write(obj.updatedBy)
-      ..writeByte(7)
+      ..writeByte(6)
       ..write(obj.createdAt)
-      ..writeByte(8)
+      ..writeByte(7)
       ..write(obj.updatedAt);
   }
 

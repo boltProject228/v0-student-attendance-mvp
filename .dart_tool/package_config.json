@@ -170,6 +170,12 @@
       "languageVersion": "3.1"
     },
     {
+      "name": "fl_chart",
+      "rootUri": "file:///C:/Users/masal/AppData/Local/Pub/Cache/hosted/pub.dev/fl_chart-1.1.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.6"
+    },
+    {
       "name": "flutter",
       "rootUri": "file:///C:/Users/masal/flutter/packages/flutter",
       "packageUri": "lib/",
@@ -480,6 +486,12 @@
       "rootUri": "file:///C:/Users/masal/AppData/Local/Pub/Cache/hosted/pub.dev/shelf_web_socket-2.0.1",
       "packageUri": "lib/",
       "languageVersion": "3.3"
+    },
+    {
+      "name": "shimmer",
+      "rootUri": "file:///C:/Users/masal/AppData/Local/Pub/Cache/hosted/pub.dev/shimmer-3.0.0",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
     },
     {
       "name": "sky_engine",
